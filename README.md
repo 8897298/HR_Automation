@@ -83,3 +83,8 @@ To modify:
 - Colors: Edit CSS variables in `styles.css`  
 - Layout: Adjust `chartConfig` in `chart.js`  
 - Data Handling: Modify `dataProcessors` in `data.js`  
+
+---
+
+**Developed by Ananya Ganesam**  
+*For implementation details, see the annotated source code*  
