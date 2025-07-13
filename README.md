@@ -1,5 +1,5 @@
 # FedEx Org Chart Generator  
-Ananya Ganesam 
+
 A web-based tool to visualize employee hierarchies from Excel/CSV/JSON data.  
 
 ## Features  
