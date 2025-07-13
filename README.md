@@ -72,10 +72,10 @@ Required fields (column names are flexible):
 
 ## Browser Support  
 
-- Chrome ✅  
-- Firefox ✅  
-- Edge ✅  
-- Safari ✅  
+- Chrome 
+- Firefox 
+- Edge 
+- Safari 
 
 ## Customization  
 
