@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FedEx Employee Hierarchy Generator</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="header-content">
+                <img src="https://www.pngmart.com/files/15/Fedex-Logo-PNG-Transparent-Image.png" alt="FedEx Logo">
+                <h1></h1>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="upload-section">
+            <div class="file-upload">
+                <div class="file-input">
+                    <input type="file" id="fileInput" accept=".json,.xlsx,.xls,.csv" multiple />
+                    📁 Click to upload Excel or JSON files
+                </div>
+            </div>
+
+            <!-- Dataset Controls -->
+            <div class="dataset-controls" id="datasetControls" style="display: none;">
+                <div class="dataset-selector">
+                    <label for="datasetSelect">Active Dataset:</label>
+                    <select id="datasetSelect"></select>
+                </div>
+            </div>
+
+            <!-- Department Selector -->
+            <div class="department-select" style="display: none;" id="departmentSelectDiv">
+                <label for="departmentSelect">Select Department:</label>
+                <select id="departmentSelect">
+                    <option value="">Choose a department...</option>
+                </select>
+            </div>
+
+            <!-- Manager Selector -->
+            <div class="manager-select" style="display: none;" id="managerSelectDiv">
+                <label for="managerSelect">Select Manager:</label>
+                <select id="managerSelect">
+                    <option value="">Show full department hierarchy</option>
+                </select>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="status"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <!-- Summary Statistics -->
+            <div class="summary-stats" id="summaryStats"></div>
+
+            <!-- View Options -->
+            <div class="view-options">
+                <button id="editModeBtn">Edit Mode</button>
+                <button id="addNodeBtn">Add Node</button>
+                <button id="saveLayoutBtn">Save Layout</button>
+                <button id="saveChartBtn" class="screenshot-btn">Save Screenshot</button>
+            </div>
+
+            <!-- Flowchart Section -->
+            <div class="flowchart-section" id="flowchartSection">
+                <div class="flowchart-header">
+                    <h2>Organizational Hierarchy Chart</h2>
+                    <div class="flowchart-options">
+                        <button id="fullscreenBtn">Fullscreen</button>
+                        <div class="node-size-controls">
+                            <label for="nodeSizeSlider">Node Size:</label>
+                            <input type="range" id="nodeSizeSlider" min="1" max="200" value="150">
+                            <span class="value-display" id="nodeSizeValue">150</span>
+
+                            <label for="horizontalSpacingSlider">Horizontal Spacing:</label>
+                            <input type="range" id="horizontalSpacingSlider" min="1" max="200" value="100">
+                            <span class="value-display" id="horizontalSpacingValue">100</span>
+
+                            <button id="resetLayoutBtn">Reset Layout</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Filter -->
+                <div class="location-filter" id="locationFilter" style="display: none;">
+                    <label for="locationSelect">Filter by Location:</label>
+                    <select id="locationSelect">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="chart-container" id="flowchartContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip"></div>
+
+    <!-- Employee Modal -->
+    <div id="employeeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Employee Details</h3>
+                <button class="close-modal" id="closeEmployeeModal">×</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Add Node Modal -->
+    <div id="addNodeModal" class="add-node-modal">
+        <div class="add-node-modal-content">
+            <div class="add-node-modal-header">
+                <h3>Add New Node</h3>
+                <button class="close-modal" id="closeAddNodeModal">×</button>
+            </div>
+            <form id="addNodeForm" class="add-node-form">
+                <div class="add-node-form-group">
+                    <label for="nodeName">Node Name:</label>
+                    <input type="text" id="nodeName" required>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="nodeType">Node Type:</label>
+                    <select id="nodeType" required>
+                        <option value="department">Department</option>
+                        <option value="manager">Manager</option>
+                        <option value="job-role">Job Role</option>
+                        <option value="location">Location</option>
+                        <option value="employee">Employee</option>
+                    </select>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="parentNode">Parent Node:</label>
+                    <select id="parentNode">
+                        <option value="">None (Top Level)</option>
+                    </select>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="employeeCount">Number of Employees:</label>
+                    <input type="number" id="employeeCount" min="0" value="0">
+                </div>
+                <div class="add-node-form-group">
+                    <label for="nodeDescription">Description (Optional):</label>
+                    <textarea id="nodeDescription"></textarea>
+                </div>
+                <div class="add-node-form-actions">
+                    <button type="button" class="add-node-cancel-btn" id="cancelAddNode">Cancel</button>
+                    <button type="submit" class="add-node-submit-btn">Add Node</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dataset Name Modal -->
+    <div id="datasetNameModal" class="dataset-name-modal">
+        <div class="dataset-name-content">
+            <div class="dataset-name-header">
+                <h3>Name Your Dataset</h3>
+                <button class="close-modal" id="closeDatasetNameModal">×</button>
+            </div>
+            <form id="datasetNameForm">
+                <input type="text" id="datasetName" placeholder="Enter dataset name" required>
+                <div class="dataset-name-actions">
+                    <button type="button" class="dataset-name-cancel" id="cancelDatasetName">Cancel</button>
+                    <button type="submit" class="dataset-name-submit">Save Dataset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmationModal" class="delete-confirmation-modal" style="display: none;">
+        <div class="delete-confirmation-content">
+            <button class="close-delete-modal" id="cancelDelete">×</button>
+            <h3>Delete Node</h3>
+            <p>Are you sure you want to delete this node?</p>
+            <div class="delete-confirmation-buttons">
+                <button id="deleteSingleBtn" class="delete-confirm-btn">Delete This Node</button>
+                <button id="deleteWithChildrenBtn" class="delete-with-children-btn">Delete With Children</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Color Picker Modal -->
+    <div id="colorPickerModal" class="color-picker-modal" style="display: none;">
+        <div class="color-picker-content">
+            <button class="close-color-picker" id="closeColorPicker">×</button>
+            <h3>Node Color Settings</h3>
+            <div class="color-picker-option">
+                <label for="nodeFillColor">Node Fill Color:</label>
+                <input type="color" id="nodeFillColor" value="#FFFFFF">
+            </div>
+            <div class="color-picker-option">
+                <label for="nodeStrokeColor">Node Border Color:</label>
+                <input type="color" id="nodeStrokeColor" value="#4B0082">
+            </div>
+            <div class="color-picker-option">
+                <label for="nodeTextColor">Text Color:</label>
+                <input type="color" id="nodeTextColor" value="#4B0082">
+            </div>
+            <div class="color-picker-option">
+                <label>Apply to:</label>
+                <div class="color-picker-radio">
+                    <label><input type="radio" name="colorScope" value="node" checked> This Node Only</label>
+                    <label><input type="radio" name="colorScope" value="level"> Entire Level</label>
+                </div>
+            </div>
+            <div class="color-picker-buttons">
+                <button type="button" class="color-picker-cancel" id="cancelColorPicker">Cancel</button>
+                <button type="button" class="color-picker-apply" id="applyColorPicker">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screenshot Progress Modal -->
+    <div id="screenshotProgressModal" class="screenshot-progress-modal" style="display: none;">
+        <div class="screenshot-progress-content">
+            <h3>Generating High-Quality Screenshot</h3>
+            <p>Please wait while we generate a high-resolution image of your chart...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="screenshotProgressBar"></div>
+            </div>
+            <p id="screenshotStatus">Preparing image...</p>
+        </div>
+    </div>
+
+    <!-- Fullscreen Controls -->
+    <div id="fullscreenControls" class="fullscreen-controls" style="display: none;">
+        <button id="fsExitBtn">Exit Fullscreen</button>
+        <button id="fsScreenshotBtn" class="screenshot-btn">Take Screenshot</button>
+        <button id="fsEditModeBtn">Toggle Edit Mode</button>
+        <button id="fsSaveLayoutBtn">Save Layout</button>
+        <div class="fs-slider-controls">
+            <label>Node Size</label>
+            <input type="range" id="fsNodeSizeSlider" min="1" max="200" value="150">
+            <label>Horizontal Spacing</label>
+            <input type="range" id="fsHorizontalSpacingSlider" min="1" max="200" value="100">
+        </div>
+    </div>
+
+    <!-- Fullscreen Location Filter -->
+    <div id="fullscreenLocationFilter" class="fullscreen-location-filter" style="display: none;">
+        <label for="fsLocationSelect">Filter by Location:</label>
+        <select id="fsLocationSelect">
+            <option value="">All Locations</option>
+        </select>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/utils.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/chart.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
