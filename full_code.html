@@ -1,0 +1,4033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FedEx Employee Hierarchy Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #F8FAFC;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1E293B;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid #E2E8F0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4B0082, #6600CC);
+            color: white;
+            padding: 32px 30px;
+            text-align: center;
+            border-bottom: 4px solid #FF6600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header img {
+            height: 60px;
+            width: auto;
+            background: transparent;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .upload-section {
+            padding: 24px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 20px;
+            border: 2px dashed #4B0082;
+            border-radius: 12px;
+            background: #F5F3FF;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 500;
+            color: #4B0082;
+        }
+
+        .file-input:hover {
+            border-color: #7C3AED;
+            background: #EDE9FE;
+        }
+
+        #fileInput {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .department-select,
+        .manager-select {
+            margin-top: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #1E293B;
+            font-size: 14px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            color: #1E293B;
+            transition: all 0.2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        select:hover {
+            border-color: #94A3B8;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #4B0082;
+            box-shadow: 0 0 0 3px rgba(75, 0, 130, 0.1);
+        }
+
+        .results-section {
+            padding: 24px;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #4B0082, #7C3AED);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100px;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .view-options {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .view-options button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #E2E8F0;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            color: #334155;
+        }
+
+        .view-options button:hover {
+            background: #CBD5E1;
+        }
+
+        .view-options button.active {
+            background: #4B0082;
+            color: white;
+        }
+
+        .view-options button.edit-mode {
+            background: #FF6600;
+            color: white;
+        }
+
+        .flowchart-section {
+            margin-top: 24px;
+            padding: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: none;
+            height: 800px;
+            position: relative;
+            border: 1px solid #E2E8F0;
+        }
+
+        .flowchart-header {
+            background: linear-gradient(135deg, #4B0082, #6600CC);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 3px solid #FF6600;
+        }
+
+        .flowchart-header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .flowchart-options {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .flowchart-options button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .flowchart-options button:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .flowchart-options button.active {
+            background: white;
+            color: #4B0082;
+        }
+
+        .flowchart-options button.edit-mode {
+            background: #FF6600;
+            color: white;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: calc(100% - 60px);
+            background: white;
+            overflow: auto;
+            touch-action: none;
+        }
+
+        #flowchartContainer {
+            width: 100%;
+            min-height: 100%;
+            position: relative;
+            background-color: white;
+        }
+
+        #flowchartContainer svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: white;
+        }
+
+        .node rect {
+            stroke-width: 1.5px;
+            rx: 8;
+            ry: 8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            fill: none;
+        }
+
+        .node text {
+            font-family: 'Inter', sans-serif;
+            text-anchor: middle;
+            pointer-events: none;
+            font-weight: bold;
+        }
+
+        .department-node text {
+            fill: #4B0082;
+        }
+
+        .manager-node text {
+            fill: #7C3AED;
+        }
+
+        .job-role-node text {
+            fill: #2563EB;
+        }
+
+        .employee-node text {
+            fill: #0284C7;
+        }
+
+        .top-level-node text {
+            fill: #0284C7;
+        }
+
+        .location-node text {
+            fill: #FF6600;
+        }
+
+        .link {
+            fill: none;
+            stroke: #94A3B8;
+            stroke-width: 1.5px;
+            stroke-linecap: round;
+        }
+
+        #tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(30, 41, 59, 0.95);
+            color: white;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            max-width: 280px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            line-height: 1.5;
+        }
+
+        #employeeModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        #employeeModal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #4B0082;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748B;
+            transition: color 0.2s;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .close-modal:hover {
+            color: #475569;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .employee-card {
+            background: #F8FAFC;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #E2E8F0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: #CBD5E1;
+        }
+
+        .employee-card h4 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: #4B0082;
+            border-bottom: 1px solid #E2E8F0;
+            padding-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .employee-card p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .employee-card .employee-id {
+            font-weight: 600;
+            color: #7C3AED;
+        }
+
+        .employee-card .employee-location {
+            color: #64748B;
+            font-size: 13px;
+        }
+
+        .highlight {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .fullscreen-chart {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            background: white;
+            padding: 0;
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .fullscreen-chart .chart-container {
+            height: calc(100% - 60px);
+        }
+
+        .fullscreen-chart .flowchart-header {
+            border-radius: 0;
+            display: none;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748B;
+            font-size: 16px;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .status.success {
+            background: #ECFDF5;
+            color: #065F46;
+            border: 1px solid #D1FAE5;
+        }
+
+        .status.error {
+            background: #FEE2E2;
+            color: #B91C1C;
+            border: 1px solid #FECACA;
+        }
+
+        .screenshot-btn {
+            background: linear-gradient(135deg, #FF6600, #FF9900);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .screenshot-btn:hover {
+            background: linear-gradient(135deg, #E55C00, #E58800);
+        }
+
+        /* Location filter styles */
+        .location-filter {
+            margin-top: 16px;
+            padding: 12px;
+            background: #F8FAFC;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+        }
+
+        .location-filter label {
+            font-weight: 600;
+            margin-right: 12px;
+            color: #4B0082;
+            display: inline-block;
+        }
+
+        .location-filter select {
+            width: auto;
+            min-width: 200px;
+            display: inline-block;
+        }
+
+        /* Node size controls */
+        .node-size-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .node-size-controls label {
+            font-size: 13px;
+            color: white;
+            margin-right: 4px;
+        }
+
+        .node-size-controls input[type="range"] {
+            width: 120px;
+            height: 6px;
+            border-radius: 3px;
+            background: #E2E8F0;
+            appearance: none;
+            outline: none;
+        }
+
+        .node-size-controls input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .node-size-controls .value-display {
+            min-width: 40px;
+            text-align: center;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .node-size-controls button {
+            padding: 6px 12px;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .node-size-controls button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Edit mode styles */
+        .edit-mode .node {
+            cursor: move;
+        }
+
+        .edit-mode .node rect {
+            stroke-dasharray: 5,5;
+        }
+
+        /* Fullscreen controls */
+        .fullscreen-controls {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: rgba(75, 0, 130, 0.95);
+            padding: 16px;
+            border-radius: 12px;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .fullscreen-controls button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .fullscreen-controls button:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .fullscreen-controls button.screenshot-btn {
+            background: linear-gradient(135deg, #FF6600, #FF9900);
+        }
+
+        .fullscreen-controls button.screenshot-btn:hover {
+            background: linear-gradient(135deg, #E55C00, #E58800);
+        }
+
+        /* Node text wrapping */
+        .node text {
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        .node foreignObject {
+            overflow: visible;
+        }
+
+        .node .text-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            text-align: center;
+            word-break: break-word;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+        }
+
+        .node .text-container .main-text {
+            font-weight: 600;
+            margin-bottom: 4px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            font-size: 1em;
+        }
+
+        .node .text-container .count-text {
+            font-size: 0.85em;
+            color: #64748B;
+        }
+
+        /* Delete button */
+        .node .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #EF4444;
+            color: white;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            z-index: 10;
+            padding: 0;
+            line-height: 1;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        .node .delete-btn:hover {
+            background: #DC2626;
+            transform: scale(1.1);
+        }
+
+        /* Color picker button */
+        .node .color-picker-btn {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #4B0082;
+            color: white;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            z-index: 10;
+            padding: 0;
+            line-height: 1;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        .node .color-picker-btn:hover {
+            background: #7C3AED;
+            transform: scale(1.1);
+        }
+
+        .edit-mode .node .delete-btn {
+            display: block;
+        }
+
+        .edit-mode .node .color-picker-btn {
+            display: block;
+        }
+
+        /* Job role group styles in modal */
+        .job-role-group {
+            margin-bottom: 16px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .job-role-group-header {
+            background: #F8FAFC;
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .job-role-group-header:hover {
+            background: #F1F5F9;
+        }
+
+        .job-role-group-header h4 {
+            margin: 0;
+            color: #4B0082;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .job-role-group-content {
+            background: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .job-role-group.expanded .job-role-group-content {
+            max-height: 1000px;
+        }
+
+        .employee-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .employee-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #F1F5F9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .employee-item:hover {
+            background: #F8FAFC;
+        }
+
+        .employee-item:last-child {
+            border-bottom: none;
+        }
+
+        .employee-info {
+            flex: 1;
+        }
+
+        .employee-info strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: #1E293B;
+        }
+
+        .employee-info span {
+            font-size: 13px;
+            color: #64748B;
+        }
+
+        .employee-action-btn {
+            background: #4B0082;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .employee-action-btn:hover {
+            background: #7C3AED;
+        }
+
+        /* Fullscreen location filter */
+        .fullscreen-location-filter {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            background: rgba(75, 0, 130, 0.95);
+            padding: 16px;
+            border-radius: 12px;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .fullscreen-location-filter label {
+            color: white;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+            font-weight: 500;
+        }
+
+        .fullscreen-location-filter select {
+            width: 200px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Delete Confirmation Modal */
+        .delete-confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .delete-confirmation-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .delete-confirmation-content h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #4B0082;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .delete-confirmation-content p {
+            margin-bottom: 24px;
+            color: #334155;
+            font-size: 14px;
+        }
+
+        .delete-confirmation-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 24px;
+            gap: 12px;
+        }
+
+        .delete-confirmation-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .delete-confirm-btn {
+            background: #EF4444;
+            color: white;
+        }
+
+        .delete-confirm-btn:hover {
+            background: #DC2626;
+        }
+
+        .delete-with-children-btn {
+            background: #F97316;
+            color: white;
+        }
+
+        .delete-with-children-btn:hover {
+            background: #EA580C;
+        }
+
+        .close-delete-modal {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748B;
+            transition: color 0.2s;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .close-delete-modal:hover {
+            color: #475569;
+        }
+
+        /* Add Node Modal - Fullscreen */
+        .add-node-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .add-node-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .add-node-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            max-height: 800px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .add-node-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .add-node-modal-header h3 {
+            margin: 0;
+            color: #4B0082;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .add-node-form {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .add-node-form-group {
+            margin-bottom: 24px;
+        }
+
+        .add-node-form-group label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 500;
+            color: #1E293B;
+            font-size: 16px;
+        }
+
+        .add-node-form-group input,
+        .add-node-form-group select,
+        .add-node-form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .add-node-form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .add-node-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 16px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #E2E8F0;
+        }
+
+        .add-node-form-actions button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .add-node-cancel-btn {
+            background: #E2E8F0;
+            color: #334155;
+        }
+
+        .add-node-cancel-btn:hover {
+            background: #CBD5E1;
+        }
+
+        .add-node-submit-btn {
+            background: #4B0082;
+            color: white;
+        }
+
+        .add-node-submit-btn:hover {
+            background: #7C3AED;
+        }
+
+        /* Dataset Name Modal */
+        .dataset-name-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .dataset-name-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .dataset-name-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .dataset-name-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .dataset-name-header h3 {
+            margin: 0;
+            color: #4B0082;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .dataset-name-form input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .dataset-name-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .dataset-name-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .dataset-name-cancel {
+            background: #E2E8F0;
+            color: #334155;
+        }
+
+        .dataset-name-submit {
+            background: #4B0082;
+            color: white;
+        }
+
+        /* Color Picker Modal */
+        .color-picker-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .color-picker-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .color-picker-content h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #4B0082;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .color-picker-option {
+            margin-bottom: 16px;
+        }
+
+        .color-picker-option label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .color-picker-option input[type="color"] {
+            width: 100%;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        .color-picker-radio {
+            margin-top: 8px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .color-picker-radio label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .color-picker-radio input[type="radio"] {
+            margin: 0;
+        }
+
+        .color-picker-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .color-picker-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .color-picker-cancel {
+            background: #E2E8F0;
+            color: #334155;
+        }
+
+        .color-picker-apply {
+            background: #4B0082;
+            color: white;
+        }
+
+        .close-color-picker {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748B;
+            transition: color 0.2s;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .close-color-picker:hover {
+            color: #475569;
+        }
+
+        /* Screenshot progress modal */
+        .screenshot-progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            flex-direction: column;
+            color: white;
+        }
+
+        .screenshot-progress-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            color: #1E293B;
+        }
+
+        .screenshot-progress-content h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #4B0082;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 20px;
+            background: #E2E8F0;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #4B0082, #7C3AED);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .flowchart-options {
+                margin-top: 16px;
+                justify-content: flex-start;
+            }
+
+            .employee-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .fullscreen-controls {
+                top: auto;
+                bottom: 20px;
+                right: 20px;
+                transform: none;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .fullscreen-location-filter {
+                top: auto;
+                bottom: 80px;
+                left: 20px;
+                width: calc(100% - 40px);
+            }
+
+            .fullscreen-location-filter select {
+                width: 100%;
+            }
+
+            /* Adjust fullscreen add node modal for mobile */
+            .add-node-modal-content {
+                width: 95%;
+                height: 95vh;
+                padding: 16px;
+            }
+
+            .add-node-form-group {
+                margin-bottom: 16px;
+            }
+
+            .add-node-form-group input,
+            .add-node-form-group select,
+            .add-node-form-group textarea {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .add-node-form-actions button {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            .dataset-selector {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .dataset-selector select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <img src="https://www.pngmart.com/files/15/Fedex-Logo-PNG-Transparent-Image.png" alt="FedEx Logo" style="background: transparent;">
+                <h1></h1>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-upload">
+                <div class="file-input">
+                    <input type="file" id="fileInput" accept=".json,.xlsx,.xls,.csv" multiple />
+                    📁 Click to upload Excel or JSON files
+                </div>
+            </div>
+
+            <div class="dataset-controls" id="datasetControls" style="display: none;">
+                <div class="dataset-selector">
+                    <label for="datasetSelect">Active Dataset:</label>
+                    <select id="datasetSelect"></select>
+                </div>
+            </div>
+
+            <div class="department-select" style="display: none;" id="departmentSelectDiv">
+                <label for="departmentSelect">Select Department:</label>
+                <select id="departmentSelect">
+                    <option value="">Choose a department...</option>
+                </select>
+            </div>
+
+            <div class="manager-select" style="display: none;" id="managerSelectDiv">
+                <label for="managerSelect">Select Manager:</label>
+                <select id="managerSelect">
+                    <option value="">Show full department hierarchy</option>
+                </select>
+            </div>
+
+            <div id="status"></div>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="summary-stats" id="summaryStats"></div>
+
+            <div class="view-options">
+                <button id="editModeBtn">Edit Mode</button>
+                <button id="addNodeBtn">Add Node</button>
+                <button id="saveLayoutBtn">Save Layout</button>
+                <button id="saveChartBtn" class="screenshot-btn">Save Screenshot</button>
+            </div>
+
+            <div class="flowchart-section" id="flowchartSection">
+                <div class="flowchart-header">
+                    <h2>Organizational Hierarchy Chart</h2>
+                    <div class="flowchart-options">
+                        <button id="fullscreenBtn">Fullscreen</button>
+                        <div class="node-size-controls">
+                            <label for="nodeSizeSlider">Node Size:</label>
+                            <input type="range" id="nodeSizeSlider" min="1" max="200" value="150">
+                            <span class="value-display" id="nodeSizeValue">150</span>
+
+                            <label for="horizontalSpacingSlider">Horizontal Spacing:</label>
+                            <input type="range" id="horizontalSpacingSlider" min="1" max="200" value="100">
+                            <span class="value-display" id="horizontalSpacingValue">100</span>
+
+                            <button id="resetLayoutBtn">Reset Layout</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="location-filter" id="locationFilter" style="display: none;">
+                    <label for="locationSelect">Filter by Location:</label>
+                    <select id="locationSelect">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+
+                <div class="chart-container" id="flowchartContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip"></div>
+
+    <!-- Employee Modal -->
+    <div id="employeeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Employee Details</h3>
+                <button class="close-modal" onclick="closeEmployeeModal()">×</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Add Node Modal - Fullscreen -->
+    <div id="addNodeModal" class="add-node-modal">
+        <div class="add-node-modal-content">
+            <div class="add-node-modal-header">
+                <h3>Add New Node</h3>
+                <button class="close-modal" onclick="closeAddNodeModal()">×</button>
+            </div>
+            <form id="addNodeForm" class="add-node-form">
+                <div class="add-node-form-group">
+                    <label for="nodeName">Node Name:</label>
+                    <input type="text" id="nodeName" required>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="nodeType">Node Type:</label>
+                    <select id="nodeType" required>
+                        <option value="department">Department</option>
+                        <option value="manager">Manager</option>
+                        <option value="job-role">Job Role</option>
+                        <option value="location">Location</option>
+                        <option value="employee">Employee</option>
+                    </select>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="parentNode">Parent Node:</label>
+                    <select id="parentNode">
+                        <option value="">None (Top Level)</option>
+                    </select>
+                </div>
+                <div class="add-node-form-group">
+                    <label for="employeeCount">Number of Employees (for manager/job role/location):</label>
+                    <input type="number" id="employeeCount" min="0" value="0">
+                </div>
+                <div class="add-node-form-group">
+                    <label for="nodeDescription">Description (Optional):</label>
+                    <textarea id="nodeDescription"></textarea>
+                </div>
+                <div class="add-node-form-actions">
+                    <button type="button" class="add-node-cancel-btn" onclick="closeAddNodeModal()">Cancel</button>
+                    <button type="submit" class="add-node-submit-btn">Add Node</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dataset Name Modal -->
+    <div id="datasetNameModal" class="dataset-name-modal">
+        <div class="dataset-name-content">
+            <div class="dataset-name-header">
+                <h3>Name Your Dataset</h3>
+                <button class="close-modal" onclick="closeDatasetNameModal()">×</button>
+            </div>
+            <form id="datasetNameForm">
+                <div class="dataset-name-form">
+                    <input type="text" id="datasetName" placeholder="Enter dataset name" required>
+                </div>
+                <div class="dataset-name-actions">
+                    <button type="button" class="dataset-name-cancel" onclick="closeDatasetNameModal()">Cancel</button>
+                    <button type="submit" class="dataset-name-submit">Save Dataset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmationModal" class="delete-confirmation-modal" style="display: none;">
+        <div class="delete-confirmation-content">
+            <button class="close-delete-modal" onclick="cancelDelete()">×</button>
+            <h3>Delete Node</h3>
+            <p>Are you sure you want to delete this node?</p>
+            <div class="delete-confirmation-buttons">
+                <button id="deleteSingleBtn" class="delete-confirm-btn">Delete This Node</button>
+                <button id="deleteWithChildrenBtn" class="delete-with-children-btn">Delete With Children</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Color Picker Modal -->
+    <div id="colorPickerModal" class="color-picker-modal" style="display: none;">
+        <div class="color-picker-content">
+            <button class="close-color-picker" onclick="closeColorPicker()">×</button>
+            <h3>Node Color Settings</h3>
+
+            <div class="color-picker-option">
+                <label for="nodeFillColor">Node Fill Color:</label>
+                <input type="color" id="nodeFillColor" value="#FFFFFF">
+            </div>
+
+            <div class="color-picker-option">
+                <label for="nodeStrokeColor">Node Border Color:</label>
+                <input type="color" id="nodeStrokeColor" value="#4B0082">
+            </div>
+
+            <div class="color-picker-option">
+                <label for="nodeTextColor">Text Color:</label>
+                <input type="color" id="nodeTextColor" value="#4B0082">
+            </div>
+
+            <div class="color-picker-option">
+                <label>Apply to:</label>
+                <div class="color-picker-radio">
+                    <label>
+                        <input type="radio" name="colorScope" value="node" checked> This Node Only
+                    </label>
+                    <label>
+                        <input type="radio" name="colorScope" value="level"> Entire Level
+                    </label>
+                </div>
+            </div>
+
+            <div class="color-picker-buttons">
+                <button type="button" class="color-picker-cancel" onclick="closeColorPicker()">Cancel</button>
+                <button type="button" class="color-picker-apply" onclick="applyNodeColor()">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screenshot Progress Modal -->
+    <div id="screenshotProgressModal" class="screenshot-progress-modal" style="display: none;">
+        <div class="screenshot-progress-content">
+            <h3>Generating High-Quality Screenshot</h3>
+            <p>Please wait while we generate a high-resolution image of your chart...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="screenshotProgressBar"></div>
+            </div>
+            <p id="screenshotStatus">Preparing image...</p>
+        </div>
+    </div>
+
+    <!-- Fullscreen Controls (hidden by default) -->
+    <div id="fullscreenControls" class="fullscreen-controls" style="display: none;">
+        <button id="fsExitBtn">Exit Fullscreen</button>
+        <button id="fsScreenshotBtn" class="screenshot-btn">Take Screenshot</button>
+        <button id="fsEditModeBtn">Toggle Edit Mode</button>
+        <button id="fsSaveLayoutBtn">Save Layout</button>
+        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+            <label style="color: white; font-size: 0.8rem;">Node Size</label>
+            <input type="range" id="fsNodeSizeSlider" min="1" max="200" value="150" style="width: 100%;">
+            <label style="color: white; font-size: 0.8rem;">Horizontal Spacing</label>
+            <input type="range" id="fsHorizontalSpacingSlider" min="1" max="200" value="100" style="width: 100%;">
+        </div>
+    </div>
+
+    <!-- Fullscreen location filter (hidden by default) -->
+    <div id="fullscreenLocationFilter" class="fullscreen-location-filter" style="display: none;">
+        <label for="fsLocationSelect">Filter by Location:</label>
+        <select id="fsLocationSelect">
+            <option value="">All Locations</option>
+        </select>
+    </div>
+
+    <script>
+        let employeeData = [];
+        let currentDepartment = '';
+        let currentManager = '';
+        let currentLocation = '';
+        let currentLayout = 'vertical';
+        let hierarchyData = null;
+        let lastClickTime = 0;
+        const doubleClickThreshold = 300; // milliseconds for double-tap detection
+        let isEditMode = false;
+        let nodeToDelete = null;
+        let nodeToColor = null;
+        let customLayoutSettings = {
+            horizontalSpacing: 300,
+            verticalSpacing: 200,
+            elbowLength: 80,
+            nodeSize: 150,
+            horizontalSpacingSlider: 100
+        };
+        let nodePositions = {}; // Store custom node positions
+        let nextNodeId = 0; // Track next available node ID
+        let datasets = {}; // Store multiple datasets
+        let currentDataset = ''; // Current active dataset
+        let originalHierarchyData = null; // Store original hierarchy data for reset
+        let pendingFileData = null; // Store file data while waiting for dataset name
+
+        // Node color settings
+        let nodeColors = {
+            department: '#4B0082',
+            manager: '#7C3AED',
+            jobRole: '#2563EB',
+            employee: '#0284C7',
+            location: '#FF6600',
+            topLevel: '#0284C7'
+        };
+
+        // Initialize event listeners
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('departmentSelect').addEventListener('change', handleDepartmentChange);
+        document.getElementById('managerSelect').addEventListener('change', handleManagerChange);
+        document.getElementById('locationSelect').addEventListener('change', handleLocationChange);
+        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+        document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
+        document.getElementById('editModeBtn').addEventListener('click', toggleEditMode);
+        document.getElementById('addNodeBtn').addEventListener('click', showAddNodeModal);
+        document.getElementById('saveLayoutBtn').addEventListener('click', saveCurrentLayout);
+        document.getElementById('nodeSizeSlider').addEventListener('input', updateNodeSizeValue);
+        document.getElementById('horizontalSpacingSlider').addEventListener('input', updateHorizontalSpacingValue);
+        document.getElementById('resetLayoutBtn').addEventListener('click', resetLayout);
+        document.getElementById('nodeSizeSlider').addEventListener('change', applyNodeSizeAndSpacing);
+        document.getElementById('horizontalSpacingSlider').addEventListener('change', applyNodeSizeAndSpacing);
+        document.getElementById('fsExitBtn').addEventListener('click', toggleFullscreen);
+        document.getElementById('fsScreenshotBtn').addEventListener('click', saveChartAsImage);
+        document.getElementById('fsEditModeBtn').addEventListener('click', toggleEditMode);
+        document.getElementById('fsSaveLayoutBtn').addEventListener('click', saveCurrentLayout);
+        document.getElementById('fsNodeSizeSlider').addEventListener('input', function() {
+            document.getElementById('nodeSizeSlider').value = this.value;
+            updateNodeSizeValue();
+            applyNodeSizeAndSpacing();
+        });
+        document.getElementById('fsHorizontalSpacingSlider').addEventListener('input', function() {
+            document.getElementById('horizontalSpacingSlider').value = this.value;
+            updateHorizontalSpacingValue();
+            applyNodeSizeAndSpacing();
+        });
+        document.getElementById('fsLocationSelect').addEventListener('change', function() {
+            document.getElementById('locationSelect').value = this.value;
+            handleLocationChange({ target: { value: this.value } });
+        });
+        document.getElementById('deleteSingleBtn').addEventListener('click', deleteSingleNode);
+        document.getElementById('deleteWithChildrenBtn').addEventListener('click', deleteWithChildren);
+        document.querySelector('.close-delete-modal').addEventListener('click', cancelDelete);
+        document.getElementById('addNodeForm').addEventListener('submit', handleAddNode);
+        document.getElementById('datasetNameForm').addEventListener('submit', saveDatasetWithName);
+        document.getElementById('datasetSelect').addEventListener('change', switchDataset);
+
+        // Check for saved data on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedData = localStorage.getItem('fedexEmployeeData');
+            if (savedData) {
+                try {
+                    const parsedData = JSON.parse(savedData);
+                    datasets = parsedData.datasets || {};
+                    currentDataset = parsedData.currentDataset || '';
+                    nextNodeId = parsedData.nextNodeId || 0;
+                    nodeColors = parsedData.nodeColors || {
+                        department: '#4B0082',
+                        manager: '#7C3AED',
+                        jobRole: '#2563EB',
+                        employee: '#0284C7',
+                        location: '#FF6600',
+                        topLevel: '#0284C7'
+                    };
+
+                    if (Object.keys(datasets).length > 0) {
+                        document.getElementById('datasetControls').style.display = 'block';
+                        populateDatasetSelect();
+
+                        if (currentDataset && datasets[currentDataset]) {
+                            loadDataset(currentDataset);
+                        }
+                    }
+                } catch (error) {
+                    showStatus('Error loading saved data', 'error');
+                    console.error(error);
+                }
+            }
+        });
+
+        function saveCurrentData() {
+            const dataToSave = {
+                datasets,
+                currentDataset,
+                nextNodeId,
+                nodeColors
+            };
+            localStorage.setItem('fedexEmployeeData', JSON.stringify(dataToSave));
+        }
+
+        function populateDatasetSelect() {
+            const select = document.getElementById('datasetSelect');
+            select.innerHTML = '';
+
+            Object.keys(datasets).forEach(datasetName => {
+                const option = document.createElement('option');
+                option.value = datasetName;
+                option.textContent = datasetName;
+                if (datasetName === currentDataset) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        function showDatasetNameModal() {
+            document.getElementById('datasetNameModal').classList.add('active');
+            document.getElementById('datasetName').focus();
+        }
+
+        function closeDatasetNameModal() {
+            document.getElementById('datasetNameModal').classList.remove('active');
+            document.getElementById('datasetNameForm').reset();
+            pendingFileData = null;
+        }
+
+        function saveDatasetWithName(event) {
+            event.preventDefault();
+
+            const datasetName = document.getElementById('datasetName').value.trim();
+            if (!datasetName) {
+                showStatus('Please enter a dataset name', 'error');
+                return;
+            }
+
+            if (datasets[datasetName]) {
+                showStatus('Dataset with this name already exists', 'error');
+                return;
+            }
+
+            // Create new dataset with the pending file data
+            datasets[datasetName] = {
+                employeeData: pendingFileData,
+                currentDepartment: '',
+                currentManager: '',
+                currentLocation: '',
+                nodePositions: {},
+                customLayoutSettings: {
+                    horizontalSpacing: 300,
+                    verticalSpacing: 200,
+                    elbowLength: 80,
+                    nodeSize: 150,
+                    horizontalSpacingSlider: 100
+                }
+            };
+
+            currentDataset = datasetName;
+            saveCurrentData();
+            populateDatasetSelect();
+            document.getElementById('datasetSelect').value = datasetName;
+
+            // Process the data
+            employeeData = pendingFileData;
+            pendingFileData = null;
+
+            document.getElementById('datasetControls').style.display = 'block';
+            populateDepartmentSelect();
+
+            closeDatasetNameModal();
+            showStatus(`Dataset "${datasetName}" created and loaded`, 'success');
+        }
+
+        function switchDataset(event) {
+            const datasetName = event.target.value;
+            if (!datasetName || !datasets[datasetName]) return;
+
+            currentDataset = datasetName;
+            saveCurrentData();
+            loadDataset(datasetName);
+        }
+
+        function loadDataset(datasetName) {
+            const dataset = datasets[datasetName];
+            if (!dataset) return;
+
+            employeeData = dataset.employeeData || [];
+            currentDepartment = dataset.currentDepartment || '';
+            currentManager = dataset.currentManager || '';
+            currentLocation = dataset.currentLocation || '';
+            nodePositions = dataset.nodePositions || {};
+            customLayoutSettings = dataset.customLayoutSettings || {
+                horizontalSpacing: 300,
+                verticalSpacing: 200,
+                elbowLength: 80,
+                nodeSize: 150,
+                horizontalSpacingSlider: 100
+            };
+
+            // Update sliders to match loaded settings
+            document.getElementById('nodeSizeSlider').value = customLayoutSettings.nodeSize;
+            document.getElementById('horizontalSpacingSlider').value = customLayoutSettings.horizontalSpacingSlider;
+            document.getElementById('fsNodeSizeSlider').value = customLayoutSettings.nodeSize;
+            document.getElementById('fsHorizontalSpacingSlider').value = customLayoutSettings.horizontalSpacingSlider;
+            updateNodeSizeValue();
+            updateHorizontalSpacingValue();
+
+            if (employeeData.length > 0) {
+                document.getElementById('departmentSelectDiv').style.display = 'block';
+                populateDepartmentSelect();
+
+                if (currentDepartment) {
+                    document.getElementById('departmentSelect').value = currentDepartment;
+                    populateManagerSelect(currentDepartment);
+                    populateLocationSelect(currentDepartment);
+
+                    if (currentManager) {
+                        document.getElementById('managerSelect').value = currentManager;
+                    }
+
+                    if (currentLocation) {
+                        document.getElementById('locationSelect').value = currentLocation;
+                        document.getElementById('fsLocationSelect').value = currentLocation;
+                    }
+
+                    generateHierarchyTables();
+                }
+            } else {
+                document.getElementById('departmentSelectDiv').style.display = 'none';
+                document.getElementById('managerSelectDiv').style.display = 'none';
+                document.getElementById('locationFilter').style.display = 'none';
+                document.getElementById('resultsSection').style.display = 'none';
+            }
+
+            showStatus(`Loaded dataset "${datasetName}"`, 'success');
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('editModeBtn');
+            const fsBtn = document.getElementById('fsEditModeBtn');
+            btn.classList.toggle('edit-mode');
+            fsBtn.classList.toggle('edit-mode');
+            btn.textContent = isEditMode ? 'Exit Edit Mode' : 'Edit Mode';
+            fsBtn.textContent = isEditMode ? 'Exit Edit Mode' : 'Edit Mode';
+
+            // Toggle edit mode class on flowchart container
+            document.getElementById('flowchartContainer').classList.toggle('edit-mode');
+
+            if (hierarchyData) {
+                renderCombinedFlowChart(hierarchyData);
+            }
+        }
+
+        function showAddNodeModal() {
+            if (!isEditMode) {
+                showStatus('Please enable Edit Mode first', 'error');
+                return;
+            }
+
+            // Populate parent node dropdown
+            const parentSelect = document.getElementById('parentNode');
+            parentSelect.innerHTML = '<option value="">None (Top Level)</option>';
+
+            if (hierarchyData && hierarchyData.nodes) {
+                hierarchyData.nodes.forEach(node => {
+                    const option = document.createElement('option');
+                    option.value = node.id;
+                    option.textContent = `${node.name} (${node.type})`;
+                    parentSelect.appendChild(option);
+                });
+            }
+
+            document.getElementById('addNodeModal').classList.add('active');
+        }
+
+        function closeAddNodeModal() {
+            document.getElementById('addNodeModal').classList.remove('active');
+            document.getElementById('addNodeForm').reset();
+        }
+
+        function handleAddNode(event) {
+            event.preventDefault();
+
+            const nodeName = document.getElementById('nodeName').value;
+            const nodeType = document.getElementById('nodeType').value;
+            const parentNodeId = document.getElementById('parentNode').value;
+            const employeeCount = parseInt(document.getElementById('employeeCount').value) || 0;
+            const nodeDescription = document.getElementById('nodeDescription').value;
+
+            if (!nodeName) {
+                showStatus('Node name is required', 'error');
+                return;
+            }
+
+            // Create new node
+            const newNode = {
+                id: nextNodeId++,
+                name: nodeName,
+                type: nodeType,
+                description: nodeDescription,
+                count: employeeCount,
+                employees: [],
+                expanded: false,
+                hidden: false
+            };
+
+            // Add to hierarchy data
+            if (!hierarchyData) {
+                hierarchyData = { nodes: [], links: [] };
+            }
+
+            hierarchyData.nodes.push(newNode);
+
+            // If parent node is selected, create the link
+            if (parentNodeId) {
+                hierarchyData.links.push({
+                    source: parseInt(parentNodeId),
+                    target: newNode.id
+                });
+            }
+
+            // Save positions if needed
+            nodePositions[newNode.id] = {
+                x: window.innerWidth / 2 - 100,
+                y: window.innerHeight / 2 - 50
+            };
+
+            // Save data
+            saveCurrentData();
+
+            // Re-render
+            renderCombinedFlowChart(hierarchyData);
+            closeAddNodeModal();
+        }
+
+        function updateNodeSizeValue() {
+            document.getElementById('nodeSizeValue').textContent = document.getElementById('nodeSizeSlider').value;
+            document.getElementById('fsNodeSizeSlider').value = document.getElementById('nodeSizeSlider').value;
+            customLayoutSettings.nodeSize = parseInt(document.getElementById('nodeSizeSlider').value);
+        }
+
+        function updateHorizontalSpacingValue() {
+            document.getElementById('horizontalSpacingValue').textContent = document.getElementById('horizontalSpacingSlider').value;
+            document.getElementById('fsHorizontalSpacingSlider').value = document.getElementById('horizontalSpacingSlider').value;
+            customLayoutSettings.horizontalSpacingSlider = parseInt(document.getElementById('horizontalSpacingSlider').value);
+        }
+
+        function resetLayout() {
+            // Reset to original hierarchy data
+            if (originalHierarchyData) {
+                hierarchyData = JSON.parse(JSON.stringify(originalHierarchyData));
+                nodePositions = {};
+                nextNodeId = Math.max(...hierarchyData.nodes.map(n => n.id)) + 1;
+            }
+
+            // Reset layout settings to defaults
+            customLayoutSettings = {
+                horizontalSpacing: 300,
+                verticalSpacing: 200,
+                elbowLength: 80,
+                nodeSize: 150,
+                horizontalSpacingSlider: 100
+            };
+
+            // Update sliders
+            document.getElementById('nodeSizeSlider').value = customLayoutSettings.nodeSize;
+            document.getElementById('horizontalSpacingSlider').value = customLayoutSettings.horizontalSpacingSlider;
+            document.getElementById('fsNodeSizeSlider').value = customLayoutSettings.nodeSize;
+            document.getElementById('fsHorizontalSpacingSlider').value = customLayoutSettings.horizontalSpacingSlider;
+            updateNodeSizeValue();
+            updateHorizontalSpacingValue();
+
+            // Save data
+            saveCurrentData();
+
+            if (hierarchyData) {
+                renderCombinedFlowChart(hierarchyData);
+            }
+        }
+
+        function applyNodeSizeAndSpacing() {
+            const nodeSize = parseInt(document.getElementById('nodeSizeSlider').value);
+            const horizontalSpacing = parseInt(document.getElementById('horizontalSpacingSlider').value);
+
+            customLayoutSettings.nodeSize = nodeSize;
+            customLayoutSettings.horizontalSpacingSlider = horizontalSpacing;
+
+            // Scale spacing values based on the slider (1-200 to actual pixel values)
+            customLayoutSettings.horizontalSpacing = 150 + (horizontalSpacing * 2.5); // Increased multiplier for better spacing
+            customLayoutSettings.verticalSpacing = 120 + (horizontalSpacing * 1.2);
+            customLayoutSettings.elbowLength = 60 + (horizontalSpacing * 0.8);
+
+            // Re-render the chart if we have data
+            if (hierarchyData) {
+                renderCombinedFlowChart(hierarchyData);
+            }
+        }
+
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+
+            let filesProcessed = 0;
+            let allData = [];
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                            // Process Excel file
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[firstSheetName];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                            // Standardize column names
+                            const standardizedData = jsonData.map(row => {
+                                const standardizedRow = {};
+                                for (const key in row) {
+                                    const lowerKey = key.toLowerCase().trim();
+
+                                    if (lowerKey.includes('department') || lowerKey === 'dept') {
+                                        standardizedRow['Department'] = row[key];
+                                    } else if ((lowerKey.includes('employee') && lowerKey.includes('name')) ||
+                                              lowerKey === 'name' ||
+                                              lowerKey === 'full name') {
+                                        standardizedRow['Employee Name'] = row[key];
+                                    } else if ((lowerKey.includes('job') && lowerKey.includes('profile')) ||
+                                              lowerKey.includes('title') ||
+                                              lowerKey.includes('position')) {
+                                        standardizedRow['Job Profile'] = row[key];
+                                    } else if (lowerKey.includes('location') || lowerKey === 'office') {
+                                        standardizedRow['Location'] = row[key];
+                                    } else if ((lowerKey.includes('reporting') && lowerKey.includes('manager')) ||
+                                              lowerKey.includes('manager') ||
+                                              lowerKey.includes('supervisor')) {
+                                        standardizedRow['Reporting Manager'] = row[key];
+                                    } else if ((lowerKey.includes('employee') && lowerKey.includes('id')) ||
+                                              lowerKey.includes('staff id') ||
+                                              lowerKey.includes('emp id')) {
+                                        standardizedRow['Employee ID'] = row[key];
+                                    } else if (lowerKey.includes('email') || lowerKey.includes('mail')) {
+                                        standardizedRow['Email'] = row[key];
+                                    } else if (lowerKey.includes('phone') || lowerKey.includes('mobile') || lowerKey.includes('contact')) {
+                                        standardizedRow['Phone'] = row[key];
+                                    }
+                                }
+                                return standardizedRow;
+                            });
+
+                            allData = allData.concat(standardizedData);
+                        } else {
+                            // Process JSON file
+                            const jsonData = JSON.parse(e.target.result);
+                            const parsedData = Array.isArray(jsonData) ? jsonData : [jsonData];
+
+                            // Ensure JSON data has required fields
+                            const standardizedData = parsedData.map(emp => {
+                                return {
+                                    'Department': emp.Department || emp.department || emp.Dept || emp.dept || 'Unknown',
+                                    'Employee Name': emp['Employee Name'] || emp.employeeName || emp.name || emp.fullName || 'Unknown',
+                                    'Job Profile': emp['Job Profile'] || emp.jobProfile || emp.title || emp.position || 'Unknown',
+                                    'Location': emp.Location || emp.location || emp.office || 'Unknown',
+                                    'Reporting Manager': emp['Reporting Manager'] || emp.reportingManager || emp.manager || emp.supervisor || '',
+                                    'Employee ID': emp['Employee ID'] || emp.employeeID || emp.staffID || emp.id || '',
+                                    'Email': emp.Email || emp.email || emp.mail || '',
+                                    'Phone': emp.Phone || emp.phone || emp.mobile || emp.contact || ''
+                                };
+                            });
+
+                            allData = allData.concat(standardizedData);
+                        }
+
+                        filesProcessed++;
+                        if (filesProcessed === files.length) {
+                            // All files processed
+                            pendingFileData = allData;
+                            showDatasetNameModal();
+                        }
+                    } catch (error) {
+                        showStatus(`Error parsing file ${file.name}. Please check the format.`, 'error');
+                        console.error(error);
+                    }
+                };
+                reader.onerror = function() {
+                    showStatus(`Error reading file ${file.name}.`, 'error');
+                };
+
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        function populateDepartmentSelect() {
+            const departments = [...new Set(employeeData.map(emp => emp.Department))].filter(Boolean);
+            const select = document.getElementById('departmentSelect');
+
+            select.innerHTML = '<option value="">Choose a department...</option>';
+            departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                select.appendChild(option);
+            });
+
+            document.getElementById('departmentSelectDiv').style.display = 'block';
+        }
+
+        function populateManagerSelect(department) {
+            const deptEmployees = employeeData.filter(emp => emp.Department === department);
+            const managerStructure = buildManagerStructure(deptEmployees);
+
+            const select = document.getElementById('managerSelect');
+            select.innerHTML = '<option value="">Show full department hierarchy</option>';
+
+            // Add all managers who have employees reporting to them
+            managerStructure.forEach((data, managerName) => {
+                const option = document.createElement('option');
+                option.value = data.manager['Employee Name'];
+                option.textContent = `${data.manager['Employee Name']} (${data.employees.length} employees)`;
+                select.appendChild(option);
+            });
+
+            document.getElementById('managerSelectDiv').style.display = 'block';
+
+            // Prevent the management modal from opening when selecting a manager
+            select.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        }
+
+        function populateLocationSelect(department) {
+            const deptEmployees = employeeData.filter(emp => emp.Department === department);
+            const locations = [...new Set(deptEmployees.map(emp => emp['Location']))].filter(Boolean);
+            const select = document.getElementById('locationSelect');
+
+            select.innerHTML = '<option value="">All Locations</option>';
+            locations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                select.appendChild(option);
+            });
+
+            // Also populate the fullscreen location filter
+            const fsSelect = document.getElementById('fsLocationSelect');
+            fsSelect.innerHTML = '<option value="">All Locations</option>';
+            locations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                fsSelect.appendChild(option);
+            });
+
+            document.getElementById('locationFilter').style.display = 'block';
+        }
+
+        function handleDepartmentChange(event) {
+            currentDepartment = event.target.value;
+            currentManager = '';
+            currentLocation = '';
+            if (currentDepartment) {
+                populateManagerSelect(currentDepartment);
+                populateLocationSelect(currentDepartment);
+                generateHierarchyTables();
+                saveCurrentDataset();
+            } else {
+                document.getElementById('managerSelectDiv').style.display = 'none';
+                document.getElementById('locationFilter').style.display = 'none';
+                document.getElementById('resultsSection').style.display = 'none';
+            }
+        }
+
+        function handleManagerChange(event) {
+            currentManager = event.target.value;
+            if (currentDepartment) {
+                generateHierarchyTables();
+                saveCurrentDataset();
+            }
+        }
+
+        function handleLocationChange(event) {
+            currentLocation = event.target.value;
+            if (currentDepartment) {
+                generateHierarchyTables();
+                saveCurrentDataset();
+            }
+        }
+
+        function toggleFullscreen() {
+            const flowchartSection = document.getElementById('flowchartSection');
+            const isFullscreen = flowchartSection.classList.contains('fullscreen-chart');
+
+            if (isFullscreen) {
+                flowchartSection.classList.remove('fullscreen-chart');
+                document.body.style.overflow = 'auto';
+                document.getElementById('fullscreenControls').style.display = 'none';
+                document.getElementById('fullscreenLocationFilter').style.display = 'none';
+                document.getElementById('locationFilter').style.display = 'block';
+            } else {
+                flowchartSection.classList.add('fullscreen-chart');
+                document.body.style.overflow = 'hidden';
+                document.getElementById('fullscreenControls').style.display = 'flex';
+                document.getElementById('fullscreenLocationFilter').style.display = 'block';
+                document.getElementById('locationFilter').style.display = 'none';
+            }
+
+            // Recalculate dimensions after fullscreen change
+            setTimeout(() => {
+                if (hierarchyData) {
+                    renderCombinedFlowChart(hierarchyData);
+                }
+            }, 100);
+        }
+
+        function generateHierarchyTables() {
+            const deptEmployees = employeeData.filter(emp => emp.Department === currentDepartment);
+
+            // Apply location filter if selected
+            const filteredEmployees = currentLocation ?
+                deptEmployees.filter(emp => emp['Location'] === currentLocation) :
+                deptEmployees;
+
+            if (filteredEmployees.length === 0) {
+                showStatus('No employees found matching the selected criteria.', 'error');
+                return;
+            }
+
+            // Build manager-employee structure
+            const managerStructure = buildManagerStructure(filteredEmployees);
+
+            // Generate summary stats
+            generateSummaryStats(filteredEmployees, managerStructure);
+
+            // Generate combined flow chart first
+            if (currentManager) {
+                // Find the selected manager in the structure
+                const normalizedManagerName = normalizeName(currentManager);
+                const managerData = managerStructure.get(normalizedManagerName);
+
+                if (managerData) {
+                    // Build hierarchy for this manager and their chain
+                    hierarchyData = buildCompleteManagerHierarchy(managerData.manager, filteredEmployees);
+                } else {
+                    showStatus('Selected manager not found in department.', 'error');
+                    return;
+                }
+            } else {
+                // Show full department hierarchy with proper nested structure
+                hierarchyData = buildFullDepartmentHierarchy(managerStructure, filteredEmployees);
+            }
+
+            // Store original hierarchy data for reset
+            originalHierarchyData = JSON.parse(JSON.stringify(hierarchyData));
+
+            document.getElementById('flowchartSection').style.display = 'block';
+            renderCombinedFlowChart(hierarchyData);
+
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function buildCompleteManagerHierarchy(manager, allEmployees) {
+            const nodes = [];
+            const links = [];
+            nextNodeId = 0;
+
+            // Create a map of all employees for quick lookup (with normalized names)
+            const employeeMap = new Map();
+            allEmployees.forEach(emp => {
+                const normalizedName = normalizeName(emp['Employee Name']);
+                employeeMap.set(normalizedName, emp);
+            });
+
+            // Create manager structure
+            const managerStructure = buildManagerStructure(allEmployees);
+
+            // Function to recursively build the complete hierarchy upwards
+            const buildUpwardHierarchy = (employee, processed) => {
+                const normalizedName = normalizeName(employee['Employee Name']);
+                if (processed.has(normalizedName)) return null;
+
+                processed.add(normalizedName);
+
+                // Create node for this employee
+                const isManager = managerStructure.has(normalizedName);
+                const nodeType = isManager ? 'manager' : 'employee';
+                const node = {
+                    id: nextNodeId++,
+                    name: employee['Employee Name'] || 'Unknown',
+                    type: nodeType,
+                    count: isManager ? managerStructure.get(normalizedName).employees.length : 1,
+                    employees: [employee],
+                    fullName: `${employee['Employee Name']} - ${employee['Job Profile']}`,
+                    expanded: false
+                };
+                nodes.push(node);
+
+                // Process reporting manager
+                const managerName = employee['Reporting Manager'];
+                if (managerName && managerName.trim() !== '') {
+                    const normalizedManagerName = normalizeName(managerName);
+                    let upperManager = employeeMap.get(normalizedManagerName);
+
+                    // If manager not found, try to find a close match
+                    if (!upperManager) {
+                        upperManager = findBestMatch(managerName, allEmployees);
+                    }
+
+                    // If manager still not found, create a placeholder
+                    if (!upperManager) {
+                        upperManager = {
+                            'Employee Name': managerName,
+                            'Job Profile': 'Manager (Details not found)',
+                            'Location': 'N/A',
+                            'Department': currentDepartment,
+                            'Reporting Manager': ''
+                        };
+                    }
+
+                    const managerNode = buildUpwardHierarchy(upperManager, processed);
+                    if (managerNode) {
+                        links.push({
+                            source: managerNode.id,
+                            target: node.id
+                        });
+                    }
+                }
+
+                return node;
+            };
+
+            // Function to recursively build the complete hierarchy downwards
+            const buildDownwardHierarchy = (managerName, parentNodeId) => {
+                const normalizedManagerName = normalizeName(managerName);
+                const managerData = managerStructure.get(normalizedManagerName);
+                if (!managerData) return;
+
+                // Create manager node if not already created
+                let managerNode = nodes.find(n =>
+                    n.type === 'manager' &&
+                    normalizeName(n.name) === normalizedManagerName
+                );
+
+                if (!managerNode) {
+                    managerNode = {
+                        id: nextNodeId++,
+                        name: managerData.manager['Employee Name'],
+                        type: 'manager',
+                        count: managerData.employees.length,
+                        employees: [managerData.manager],
+                        fullName: `${managerData.manager['Employee Name']} - ${managerData.manager['Job Profile']}`,
+                        expanded: false
+                    };
+                    nodes.push(managerNode);
+
+                    // Link to parent if provided
+                    if (parentNodeId !== undefined) {
+                        links.push({
+                            source: parentNodeId,
+                            target: managerNode.id
+                        });
+                    }
+                }
+
+                // Process this manager's employees (recursively)
+                if (managerData) {
+                    // First group by location
+                    const locationGroups = new Map();
+                    managerData.employees.forEach(emp => {
+                        const location = emp['Location'] || 'Unknown Location';
+                        if (!locationGroups.has(location)) {
+                            locationGroups.set(location, []);
+                        }
+                        locationGroups.get(location).push(emp);
+                    });
+
+                    // Then for each location, group by job role
+                    locationGroups.forEach((locationEmployees, location) => {
+                        const locationNode = {
+                            id: nextNodeId++,
+                            name: location,
+                            type: 'location',
+                            count: locationEmployees.length,
+                            employees: locationEmployees,
+                            managerId: managerNode.id,
+                            hidden: false,
+                            fullName: `${location} (${locationEmployees.length} employees)`,
+                            expanded: false
+                        };
+                        nodes.push(locationNode);
+
+                        links.push({
+                            source: managerNode.id,
+                            target: locationNode.id
+                        });
+
+                        const jobRoleGroups = groupEmployeesByJobRole(locationEmployees);
+
+                        jobRoleGroups.forEach((employees, jobRole) => {
+                            const jobRoleNode = {
+                                id: nextNodeId++,
+                                name: jobRole,
+                                type: 'job-role',
+                                count: employees.length,
+                                employees: employees,
+                                managerId: managerNode.id,
+                                hidden: false,
+                                fullName: `${jobRole} (${employees.length} employees)`,
+                                expanded: false
+                            };
+                            nodes.push(jobRoleNode);
+
+                            links.push({
+                                source: locationNode.id,
+                                target: jobRoleNode.id
+                            });
+
+                            // Check if any of these employees are managers themselves
+                            employees.forEach(emp => {
+                                const normalizedEmpName = normalizeName(emp['Employee Name']);
+                                if (managerStructure.has(normalizedEmpName)) {
+                                    buildDownwardHierarchy(emp['Employee Name'], jobRoleNode.id);
+                                }
+                            });
+                        });
+                    });
+                }
+            };
+
+            // First build upward hierarchy (managers above the selected manager)
+            const processed = new Set();
+            buildUpwardHierarchy(manager, processed);
+
+            // Then build downward hierarchy (employees below the selected manager)
+            buildDownwardHierarchy(manager['Employee Name']);
+
+            return { nodes, links };
+        }
+
+        function buildFullDepartmentHierarchy(managerStructure, allEmployees) {
+            const nodes = [];
+            const links = [];
+            nextNodeId = 0;
+
+            // Create a map of all employees for quick lookup (with normalized names)
+            const employeeMap = new Map();
+            allEmployees.forEach(emp => {
+                const normalizedName = normalizeName(emp['Employee Name']);
+                employeeMap.set(normalizedName, emp);
+            });
+
+            // Add department root node
+            const rootNode = {
+                id: nextNodeId++,
+                name: `${currentDepartment} Department`,
+                type: 'department',
+                count: allEmployees.length,
+                expanded: false
+            };
+            nodes.push(rootNode);
+
+            // Create a map to track which employees have been processed
+            const processedEmployees = new Set();
+
+            // Function to recursively build manager hierarchy
+            const buildManagerHierarchy = (managerName, parentNodeId) => {
+                const normalizedManagerName = normalizeName(managerName);
+
+                if (processedEmployees.has(normalizedManagerName)) return null;
+
+                processedEmployees.add(normalizedManagerName);
+
+                const managerData = managerStructure.get(normalizedManagerName);
+                const managerDetails = managerData ? managerData.manager :
+                    employeeMap.get(normalizedManagerName) || {
+                        'Employee Name': managerName,
+                        'Job Profile': 'Manager (Details not found)',
+                        'Location': 'N/A',
+                        'Department': currentDepartment,
+                        'Reporting Manager': ''
+                    };
+
+                // Create manager node
+                const managerNode = {
+                    id: nextNodeId++,
+                    name: managerDetails['Employee Name'] || 'Unknown',
+                    type: 'manager',
+                    count: managerData ? managerData.employees.length : 0,
+                    employees: [managerDetails],
+                    fullName: `${managerDetails['Employee Name']} - ${managerDetails['Job Profile']}`,
+                    expanded: false
+                };
+                nodes.push(managerNode);
+
+                // Link to parent node
+                if (parentNodeId !== undefined) {
+                    links.push({
+                        source: parentNodeId,
+                        target: managerNode.id
+                    });
+                } else {
+                    // Link to department root if no parent
+                    links.push({
+                        source: rootNode.id,
+                        target: managerNode.id
+                    });
+                }
+
+                // Process this manager's employees (only one level down)
+                if (managerData) {
+                    // First group by location
+                    const locationGroups = new Map();
+                    managerData.employees.forEach(emp => {
+                        const location = emp['Location'] || 'Unknown Location';
+                        if (!locationGroups.has(location)) {
+                            locationGroups.set(location, []);
+                        }
+                        locationGroups.get(location).push(emp);
+                    });
+
+                    // Then for each location, group by job role
+                    locationGroups.forEach((locationEmployees, location) => {
+                        const locationNode = {
+                            id: nextNodeId++,
+                            name: location,
+                            type: 'location',
+                            count: locationEmployees.length,
+                            employees: locationEmployees,
+                            managerId: managerNode.id,
+                            hidden: false,
+                            fullName: `${location} (${locationEmployees.length} employees)`,
+                            expanded: false
+                        };
+                        nodes.push(locationNode);
+
+                        links.push({
+                            source: managerNode.id,
+                            target: locationNode.id
+                        });
+
+                        const jobRoleGroups = groupEmployeesByJobRole(locationEmployees);
+
+                        jobRoleGroups.forEach((employees, jobRole) => {
+                            const jobRoleNode = {
+                                id: nextNodeId++,
+                                name: jobRole,
+                                type: 'job-role',
+                                count: employees.length,
+                                employees: employees,
+                                managerId: managerNode.id,
+                                hidden: false,
+                                fullName: `${jobRole} (${employees.length} employees)`,
+                                expanded: false
+                            };
+                            nodes.push(jobRoleNode);
+
+                            links.push({
+                                source: locationNode.id,
+                                target: jobRoleNode.id
+                            });
+                        });
+                    });
+                }
+
+                return managerNode;
+            };
+
+            // First process all employees without managers
+            const employeesWithoutManagers = allEmployees.filter(emp =>
+                !emp['Reporting Manager'] || emp['Reporting Manager'].trim() === ''
+            );
+
+            if (employeesWithoutManagers.length > 0) {
+                // Group top-level employees by location first
+                const locationGroups = new Map();
+                employeesWithoutManagers.forEach(emp => {
+                    const location = emp['Location'] || 'Unknown Location';
+                    if (!locationGroups.has(location)) {
+                        locationGroups.set(location, []);
+                    }
+                    locationGroups.get(location).push(emp);
+                });
+
+                locationGroups.forEach((locationEmployees, location) => {
+                    const locationNode = {
+                        id: nextNodeId++,
+                        name: location,
+                        type: 'location',
+                        count: locationEmployees.length,
+                        employees: locationEmployees,
+                        fullName: `${location} (Top Level)`,
+                        expanded: false
+                    };
+                    nodes.push(locationNode);
+
+                    links.push({
+                        source: rootNode.id,
+                        target: locationNode.id
+                    });
+
+                    const jobRoleGroups = groupEmployeesByJobRole(locationEmployees);
+
+                    jobRoleGroups.forEach((employees, jobRole) => {
+                        const jobRoleNode = {
+                            id: nextNodeId++,
+                            name: jobRole,
+                            type: 'top-level-role',
+                            count: employees.length,
+                            employees: employees,
+                            fullName: `${jobRole} (Top Level)`,
+                            expanded: false
+                        };
+                        nodes.push(jobRoleNode);
+
+                        links.push({
+                            source: locationNode.id,
+                            target: jobRoleNode.id
+                        });
+                    });
+                });
+            }
+
+            // Then process all managers who don't report to anyone in this department (top-level managers)
+            managerStructure.forEach((data, normalizedManagerName) => {
+                const manager = data.manager;
+                const reportingManager = manager['Reporting Manager'];
+
+                if (!reportingManager || reportingManager.trim() === '' ||
+                    !employeeMap.has(normalizeName(reportingManager))) {
+
+                    if (!processedEmployees.has(normalizedManagerName)) {
+                        buildManagerHierarchy(manager['Employee Name'], rootNode.id);
+                    }
+                }
+            });
+
+            // Then process all other managers in the hierarchy
+            managerStructure.forEach((data, normalizedManagerName) => {
+                if (!processedEmployees.has(normalizedManagerName)) {
+                    const manager = data.manager;
+                    const reportingManager = manager['Reporting Manager'];
+
+                    if (reportingManager && reportingManager.trim() !== '') {
+                        const normalizedReportingManagerName = normalizeName(reportingManager);
+
+                        // Check if the reporting manager exists in our structure
+                        if (managerStructure.has(normalizedReportingManagerName)) {
+                            // Find the reporting manager node
+                            const reportingManagerNode = nodes.find(n =>
+                                n.type === 'manager' &&
+                                normalizeName(n.name) === normalizedReportingManagerName
+                            );
+
+                            // If the reporting manager node exists, place under it
+                            if (reportingManagerNode) {
+                                buildManagerHierarchy(manager['Employee Name'], reportingManagerNode.id);
+                            } else {
+                                // If not found, place under department root
+                                buildManagerHierarchy(manager['Employee Name'], rootNode.id);
+                            }
+                        } else {
+                            // If reporting manager not found in structure, place under department root
+                            buildManagerHierarchy(manager['Employee Name'], rootNode.id);
+                        }
+                    }
+                }
+            });
+
+            return { nodes, links };
+        }
+
+        function buildManagerStructure(employees) {
+            const managerMap = new Map();
+            const employeeMap = new Map();
+
+            // First create a map of all employees with normalized names for matching
+            employees.forEach(emp => {
+                const normalizedName = normalizeName(emp['Employee Name']);
+                employeeMap.set(normalizedName, emp);
+            });
+
+            // Group employees by their reporting manager with enhanced fuzzy matching
+            employees.forEach(emp => {
+                const managerName = emp['Reporting Manager'];
+                if (managerName && managerName.trim() !== '') {
+                    const normalizedManagerName = normalizeName(managerName);
+
+                    // Try to find the manager in the employee list
+                    let managerDetails = employeeMap.get(normalizedManagerName);
+
+                    // If manager not found, try to find a close match
+                    if (!managerDetails) {
+                        managerDetails = findBestMatch(managerName, employees);
+                    }
+
+                    // If manager still not found, create a placeholder
+                    if (!managerDetails) {
+                        managerDetails = {
+                            'Employee Name': managerName,
+                            'Job Profile': 'Manager (Details not found)',
+                            'Location': 'N/A',
+                            'Department': currentDepartment,
+                            'Reporting Manager': ''
+                        };
+                        const normalizedManagerName = normalizeName(managerName);
+                        employeeMap.set(normalizedManagerName, managerDetails);
+                    }
+
+                    // Find or create manager entry
+                    const normalizedKey = normalizeName(managerDetails['Employee Name']);
+                    if (!managerMap.has(normalizedKey)) {
+                        managerMap.set(normalizedKey, {
+                            manager: managerDetails,
+                            employees: []
+                        });
+                    }
+
+                    managerMap.get(normalizedKey).employees.push(emp);
+                }
+            });
+
+            return managerMap;
+        }
+
+        function groupEmployeesByJobRole(employees) {
+            const jobRoleGroups = new Map();
+
+            employees.forEach(emp => {
+                const jobRole = emp['Job Profile'] || 'Unknown Role';
+                // Exclude first 7 characters from job role name for display
+                const displayJobRole = jobRole.length > 7 ? jobRole.substring(7) : jobRole;
+                if (!jobRoleGroups.has(displayJobRole)) {
+                    jobRoleGroups.set(displayJobRole, []);
+                }
+                jobRoleGroups.get(displayJobRole).push(emp);
+            });
+
+            return jobRoleGroups;
+        }
+
+        function generateSummaryStats(employees, managerStructure) {
+            let totalEmployees = employees.length;
+            let managersCount = managerStructure.size;
+            let reportingToManager = 0;
+            let managerChain = 0;
+
+            if (currentManager) {
+                // Find the selected manager in the structure
+                const normalizedManagerName = normalizeName(currentManager);
+                const managerData = managerStructure.get(normalizedManagerName);
+
+                if (managerData) {
+                    reportingToManager = managerData.employees.length;
+
+                    // Calculate chain of command above this manager
+                    let current = managerData.manager;
+                    while (current && current['Reporting Manager']) {
+                        managerChain++;
+                        const normalizedName = normalizeName(current['Reporting Manager']);
+                        const upperManager = managerStructure.get(normalizedName);
+                        current = upperManager ? upperManager.manager : null;
+                    }
+                }
+            }
+
+            const summaryHTML = `
+                <div class="stat-card" onclick="showAllEmployees()">
+                    <span class="stat-number">${totalEmployees}</span>
+                    <span class="stat-label">Total Employees</span>
+                </div>
+                ${currentManager ? `
+                <div class="stat-card" onclick="showDirectReports()">
+                    <span class="stat-number">${reportingToManager}</span>
+                    <span class="stat-label">Direct Reports</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">${managerChain}</span>
+                    <span class="stat-label">Management Levels Above</span>
+                </div>
+                ` : `
+                <div class="stat-card" onclick="showAllManagers()">
+                    <span class="stat-number">${managersCount}</span>
+                    <span class="stat-label">Managers in Department</span>
+                </div>
+                `}
+            `;
+
+            document.getElementById('summaryStats').innerHTML = summaryHTML;
+        }
+
+        function showAllEmployees() {
+            const deptEmployees = employeeData.filter(emp => emp.Department === currentDepartment);
+            const filteredEmployees = currentLocation ?
+                deptEmployees.filter(emp => emp['Location'] === currentLocation) :
+                deptEmployees;
+
+            showEmployeeModal({
+                name: 'All Employees',
+                type: 'department',
+                count: filteredEmployees.length,
+                employees: filteredEmployees,
+                fullName: `All Employees in ${currentDepartment}${currentLocation ? ` (${currentLocation})` : ''}`
+            });
+        }
+
+        function showDirectReports() {
+            if (!currentManager) return;
+
+            const deptEmployees = employeeData.filter(emp => emp.Department === currentDepartment);
+            const filteredEmployees = currentLocation ?
+                deptEmployees.filter(emp => emp['Location'] === currentLocation) :
+                deptEmployees;
+
+            const managerStructure = buildManagerStructure(filteredEmployees);
+            const normalizedManagerName = normalizeName(currentManager);
+            const managerData = managerStructure.get(normalizedManagerName);
+
+            if (managerData) {
+                // Group employees by job role
+                const jobRoleGroups = groupEmployeesByJobRole(managerData.employees);
+
+                showEmployeeModal({
+                    name: currentManager,
+                    type: 'manager',
+                    count: managerData.employees.length,
+                    employees: managerData.employees,
+                    fullName: `Direct Reports of ${currentManager} (${managerData.employees.length} employees)`,
+                    jobRoleGroups: jobRoleGroups
+                });
+            }
+        }
+
+        function showAllManagers() {
+            const deptEmployees = employeeData.filter(emp => emp.Department === currentDepartment);
+            const filteredEmployees = currentLocation ?
+                deptEmployees.filter(emp => emp['Location'] === currentLocation) :
+                deptEmployees;
+
+            const managerStructure = buildManagerStructure(filteredEmployees);
+            const managers = Array.from(managerStructure.values()).map(data => data.manager);
+
+            // Group managers by location
+            const locationGroups = new Map();
+            managers.forEach(manager => {
+                const location = manager['Location'] || 'Unknown Location';
+                if (!locationGroups.has(location)) {
+                    locationGroups.set(location, []);
+                }
+                locationGroups.get(location).push(manager);
+            });
+
+            showEmployeeModal({
+                name: 'All Managers',
+                type: 'manager',
+                count: managers.length,
+                employees: managers,
+                fullName: `All Managers in ${currentDepartment}${currentLocation ? ` (${currentLocation})` : ''}`,
+                locationGroups: locationGroups
+            });
+        }
+
+        function renderCombinedFlowChart(data) {
+            const container = d3.select('#flowchartContainer');
+            container.selectAll("*").remove();
+
+            // Calculate required dimensions based on hierarchy depth and breadth
+            const hierarchyDepth = getHierarchyDepth(data);
+            const hierarchyBreadth = getHierarchyBreadth(data);
+
+            // Set very large dimensions to accommodate big hierarchies
+            const width = Math.max(3000, hierarchyBreadth * customLayoutSettings.horizontalSpacing);
+            const height = Math.max(3000, hierarchyDepth * customLayoutSettings.verticalSpacing);
+            const margin = { top: 40, right: 120, bottom: 40, left: 120 };
+
+            const svg = container.append('svg')
+                .attr('width', '100%')
+                .attr('height', '100%')
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .call(d3.zoom()
+                    .scaleExtent([0.1, 5])
+                    .on('zoom', (event) => {
+                        g.attr('transform', event.transform);
+                        updateLinks(); // Update links when zooming/panning
+                    }))
+                .on('dblclick.zoom', null); // Disable double-click zoom
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            // Create hierarchical layout
+            const root = d3.stratify()
+                .id(d => d.id)
+                .parentId(d => {
+                    const link = data.links.find(l => l.target === d.id);
+                    return link ? link.source : null;
+                })(data.nodes);
+
+            // Custom tree layout with dynamic spacing
+            const treeLayout = d3.tree()
+                .size([width - margin.left - margin.right, height - margin.top - margin.bottom])
+                .separation((a, b) => (a.parent === b.parent ? 1 : 1.5) / a.depth);
+
+            const treeData = treeLayout(root);
+
+            // Apply saved positions if they exist
+            treeData.each(d => {
+                if (nodePositions[d.data.id]) {
+                    d.x = nodePositions[d.data.id].x;
+                    d.y = nodePositions[d.data.id].y;
+                }
+            });
+
+            // Create elbow links
+            const links = g.selectAll('.link')
+                .data(treeData.links().filter(d => !d.target.data.hidden))
+                .enter().append('path')
+                .attr('class', 'link')
+                .style('fill', 'none')
+                .style('stroke', '#94A3B8')
+                .style('opacity', 0.8)
+                .style('stroke-width', 1.5);
+
+            // Update links initially
+            updateLinks();
+
+            // Calculate node dimensions based on size slider (1-200 to actual pixel values)
+            const nodeBaseSize = 180 + (customLayoutSettings.nodeSize * 2); // 180-580px
+            const nodeDimensions = {
+                department: { width: nodeBaseSize * 2.5, height: nodeBaseSize * 1.5, fontSize: nodeBaseSize * 0.2 },
+                manager: { width: nodeBaseSize * 1.8, height: nodeBaseSize * 1.2, fontSize: nodeBaseSize * 0.18 },
+                'job-role': { width: nodeBaseSize * 1.5, height: nodeBaseSize, fontSize: nodeBaseSize * 0.16 },
+                'top-level-role': { width: nodeBaseSize * 1.5, height: nodeBaseSize, fontSize: nodeBaseSize * 0.16 },
+                'employee': { width: nodeBaseSize * 1.2, height: nodeBaseSize * 0.9, fontSize: nodeBaseSize * 0.14 },
+                'location': { width: nodeBaseSize * 1.6, height: nodeBaseSize, fontSize: nodeBaseSize * 0.16 }
+            };
+
+            // Create nodes with double-tap functionality
+            const node = g.selectAll('.node')
+                .data(treeData.descendants().filter(d => !d.data.hidden))
+                .enter().append('g')
+                .attr('class', d => `node ${d.data.type}-node ${d.data.expanded ? 'expanded' : ''}`)
+                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', function(event, d) {
+                    const now = Date.now();
+                    const isDoubleClick = (now - lastClickTime) < doubleClickThreshold;
+                    lastClickTime = now;
+
+                    if (isEditMode) {
+                        // In edit mode, don't process clicks for expansion
+                        return;
+                    }
+
+                    if (isDoubleClick && (d.data.type === 'manager' || d.data.type === 'job-role' || d.data.type === 'top-level-role' || d.data.type === 'location')) {
+                        // Double-click on manager or job role - show all employees directly
+                        d3.select(this).classed('highlight', true);
+                        setTimeout(() => d3.select(this).classed('highlight', false), 500);
+
+                        // Collect all employees under this node
+                        let allEmployees = [];
+                        if (d.data.type === 'manager') {
+                            hierarchyData.nodes.forEach(n => {
+                                if ((n.type === 'location' || n.type === 'job-role' || n.type === 'employee') && n.managerId === d.data.id) {
+                                    allEmployees.push(...n.employees);
+                                }
+                            });
+                        } else {
+                            allEmployees = d.data.employees || [];
+                        }
+
+                        // Show in modal
+                        showEmployeeModal({
+                            name: d.data.name,
+                            type: d.data.type,
+                            count: allEmployees.length,
+                            employees: allEmployees,
+                            fullName: `All employees under ${d.data.name}`
+                        });
+                    } else if (d.data.type === 'manager' || d.data.type === 'job-role' || d.data.type === 'top-level-role' || d.data.type === 'location') {
+                        // Single click - toggle expansion of children
+                        const wasExpanded = d.data.expanded;
+                        d.data.expanded = !wasExpanded;
+
+                        // For managers, toggle employees visibility
+                        if (d.data.type === 'manager') {
+                            hierarchyData.nodes.forEach(n => {
+                                if (n.type === 'employee' && n.managerId === d.data.id) {
+                                    n.hidden = !d.data.expanded;
+                                }
+                            });
+                        }
+                        // For job roles, toggle employees visibility
+                        else if (d.data.type === 'job-role' || d.data.type === 'top-level-role' || d.data.type === 'location') {
+                            hierarchyData.nodes.forEach(n => {
+                                if (n.type === 'employee' && hierarchyData.links.some(l => l.source === d.data.id && l.target === n.id)) {
+                                    n.hidden = !d.data.expanded;
+                                }
+                            });
+                        }
+
+                        renderCombinedFlowChart(hierarchyData);
+                    } else if (d.data.type === 'employee') {
+                        // Single click on employee - show employee details
+                        showEmployeeModal(d.data);
+                    }
+                })
+                .on('mouseover', function(event, d) {
+                    if (!isEditMode) showTooltip(event, d.data);
+                })
+                .on('mouseout', function() {
+                    hideTooltip();
+                });
+
+            // Add rectangles for nodes with scaled dimensions
+            node.append('rect')
+                .attr('width', d => nodeDimensions[d.data.type].width)
+                .attr('height', d => nodeDimensions[d.data.type].height)
+                .attr('x', d => -nodeDimensions[d.data.type].width / 2)
+                .attr('y', d => -nodeDimensions[d.data.type].height / 2)
+                .style('stroke', d => {
+                    // Check for custom colors first
+                    if (d.data.customColors && d.data.customColors.stroke) {
+                        return d.data.customColors.stroke;
+                    }
+
+                    // Use default colors based on node type
+                    switch(d.data.type) {
+                        case 'department': return nodeColors.department;
+                        case 'manager': return d.data.expanded ? nodeColors.department : nodeColors.manager;
+                        case 'job-role': return nodeColors.jobRole;
+                        case 'employee': return nodeColors.employee;
+                        case 'top-level-role': return nodeColors.topLevel;
+                        case 'location': return nodeColors.location;
+                        default: return '#94A3B8';
+                    }
+                })
+                .style('stroke-width', d => d.data.expanded ? '2px' : '1.5px')
+                .style('fill', d => {
+                    // Check for custom fill color
+                    if (d.data.customColors && d.data.customColors.fill) {
+                        return d.data.customColors.fill;
+                    }
+                    return 'white';
+                })
+                .style('fill-opacity', 0.9);
+
+            // Add text containers with wrapped text
+            node.each(function(d) {
+                const g = d3.select(this);
+                const width = nodeDimensions[d.data.type].width * 0.9; // 90% of node width
+                const height = nodeDimensions[d.data.type].height * 0.9; // 90% of node height
+                const fontSize = nodeDimensions[d.data.type].fontSize;
+
+                // Create foreignObject for HTML content
+                const fo = g.append('foreignObject')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .attr('x', -width / 2)
+                    .attr('y', -height / 2);
+
+                // Create div container for text
+                const div = fo.append('xhtml:div')
+                    .attr('class', 'text-container')
+                    .style('width', width + 'px')
+                    .style('height', height + 'px')
+                    .style('font-size', fontSize + 'px')
+                    .style('padding', '8px')
+                    .style('box-sizing', 'border-box')
+                    .style('color', d => {
+                        // Check for custom text color
+                        if (d.data.customColors && d.data.customColors.text) {
+                            return d.data.customColors.text;
+                        }
+
+                        // Use default colors based on node type
+                        switch(d.data.type) {
+                            case 'department': return nodeColors.department;
+                            case 'manager': return nodeColors.manager;
+                            case 'job-role': return nodeColors.jobRole;
+                            case 'employee': return nodeColors.employee;
+                            case 'top-level-role': return nodeColors.topLevel;
+                            case 'location': return nodeColors.location;
+                            default: return '#1E293B';
+                        }
+                    });
+
+                // Add main text
+                div.append('div')
+                    .attr('class', 'main-text')
+                    .style('font-weight', '600')
+                    .style('margin-bottom', '4px')
+                    .style('word-break', 'break-word')
+                    .text(d.data.name);
+
+                // Add count if applicable
+                if (d.data.type === 'manager' || d.data.type === 'top-level-role' || d.data.type === 'job-role' || d.data.type === 'location') {
+                    div.append('div')
+                        .attr('class', 'count-text')
+                        .style('font-size', '0.85em')
+                        .style('color', '#64748B')
+                        .text(`(${d.data.count} employees)`);
+                }
+
+                // Add description if available
+                if (d.data.description) {
+                    div.append('div')
+                        .attr('class', 'description-text')
+                        .style('font-size', '0.75em')
+                        .style('color', '#64748B')
+                        .style('margin-top', '4px')
+                        .text(d.data.description);
+                }
+
+                // Add delete button (only visible in edit mode)
+                if (isEditMode) {
+                    g.append('foreignObject')
+                        .attr('width', 24)
+                        .attr('height', 24)
+                        .attr('x', nodeDimensions[d.data.type].width / 2 - 12)
+                        .attr('y', -nodeDimensions[d.data.type].height / 2 - 12)
+                        .append('xhtml:button')
+                        .attr('class', 'delete-btn')
+                        .text('×')
+                        .on('click', function(event) {
+                            event.stopPropagation();
+                            nodeToDelete = d.data.id;
+                            document.getElementById('deleteConfirmationModal').style.display = 'flex';
+                        });
+
+                    // Add color picker button (only visible in edit mode)
+                    g.append('foreignObject')
+                        .attr('width', 24)
+                        .attr('height', 24)
+                        .attr('x', -nodeDimensions[d.data.type].width / 2 - 12)
+                        .attr('y', -nodeDimensions[d.data.type].height / 2 - 12)
+                        .append('xhtml:button')
+                        .attr('class', 'color-picker-btn')
+                        .text('🎨')
+                        .on('click', function(event) {
+                            event.stopPropagation();
+                            showColorPicker(d.data.id);
+                        });
+                }
+            });
+
+            function updateLinks() {
+                links.attr('d', d => {
+                    const sourceX = d.source.x;
+                    const sourceY = d.source.y;
+                    const targetX = d.target.x;
+                    const targetY = d.target.y;
+
+                    const elbowLength = customLayoutSettings.elbowLength;
+
+                    return `M${sourceX},${sourceY}
+                            V${sourceY + elbowLength}
+                            H${targetX}
+                            V${targetY}`;
+                });
+            }
+
+            function dragstarted(event, d) {
+                if (!isEditMode) return;
+                d3.select(this).raise().classed("active", true);
+            }
+
+            function dragged(event, d) {
+                if (!isEditMode) return;
+
+                // Snap to grid in edit mode
+                const snapSize = 20;
+                const snappedX = Math.round(event.x / snapSize) * snapSize;
+                const snappedY = Math.round(event.y / snapSize) * snapSize;
+
+                d.x = snappedX;
+                d.y = snappedY;
+
+                d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
+
+                // Save the position
+                nodePositions[d.data.id] = { x: d.x, y: d.y };
+                saveCurrentData();
+
+                updateLinks();
+            }
+
+            function dragended(event, d) {
+                if (!isEditMode) return;
+                d3.select(this).classed("active", false);
+            }
+        }
+
+        function showColorPicker(nodeId) {
+            nodeToColor = nodeId;
+
+            // Find the node in hierarchy data
+            const node = hierarchyData.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            // Set default colors based on node type
+            let defaultStrokeColor = '#4B0082';
+            let defaultTextColor = '#4B0082';
+
+            switch(node.type) {
+                case 'department':
+                    defaultStrokeColor = nodeColors.department;
+                    defaultTextColor = nodeColors.department;
+                    break;
+                case 'manager':
+                    defaultStrokeColor = nodeColors.manager;
+                    defaultTextColor = nodeColors.manager;
+                    break;
+                case 'job-role':
+                    defaultStrokeColor = nodeColors.jobRole;
+                    defaultTextColor = nodeColors.jobRole;
+                    break;
+                case 'employee':
+                    defaultStrokeColor = nodeColors.employee;
+                    defaultTextColor = nodeColors.employee;
+                    break;
+                case 'location':
+                    defaultStrokeColor = nodeColors.location;
+                    defaultTextColor = nodeColors.location;
+                    break;
+                case 'top-level-role':
+                    defaultStrokeColor = nodeColors.topLevel;
+                    defaultTextColor = nodeColors.topLevel;
+                    break;
+            }
+
+            // Set the color picker values
+            document.getElementById('nodeFillColor').value = node.customColors?.fill || '#FFFFFF';
+            document.getElementById('nodeStrokeColor').value = node.customColors?.stroke || defaultStrokeColor;
+            document.getElementById('nodeTextColor').value = node.customColors?.text || defaultTextColor;
+
+            // Show the modal
+            document.getElementById('colorPickerModal').style.display = 'flex';
+        }
+
+        function closeColorPicker() {
+            document.getElementById('colorPickerModal').style.display = 'none';
+            nodeToColor = null;
+        }
+
+        function applyNodeColor() {
+            if (!nodeToColor) return;
+
+            const fillColor = document.getElementById('nodeFillColor').value;
+            const strokeColor = document.getElementById('nodeStrokeColor').value;
+            const textColor = document.getElementById('nodeTextColor').value;
+            const colorScope = document.querySelector('input[name="colorScope"]:checked').value;
+
+            // Find the node in hierarchy data
+            const node = hierarchyData.nodes.find(n => n.id === nodeToColor);
+            if (!node) return;
+
+            if (colorScope === 'node') {
+                // Apply to this node only
+                if (!node.customColors) {
+                    node.customColors = {};
+                }
+
+                node.customColors.fill = fillColor;
+                node.customColors.stroke = strokeColor;
+                node.customColors.text = textColor;
+            } else {
+                // Apply to all nodes at this level
+                const nodeDepth = getNodeDepth(node.id);
+
+                hierarchyData.nodes.forEach(n => {
+                    if (getNodeDepth(n.id) === nodeDepth && n.type === node.type) {
+                        if (!n.customColors) {
+                            n.customColors = {};
+                        }
+
+                        n.customColors.fill = fillColor;
+                        n.customColors.stroke = strokeColor;
+                        n.customColors.text = textColor;
+                    }
+                });
+            }
+
+            // Save data
+            saveCurrentData();
+
+            // Re-render the chart
+            renderCombinedFlowChart(hierarchyData);
+
+            // Close the color picker
+            closeColorPicker();
+        }
+
+        function getNodeDepth(nodeId) {
+            let depth = 0;
+            let currentNode = hierarchyData.nodes.find(n => n.id === nodeId);
+
+            while (currentNode) {
+                const parentLink = hierarchyData.links.find(link => link.target === currentNode.id);
+                if (!parentLink) break;
+
+                depth++;
+                currentNode = hierarchyData.nodes.find(n => n.id === parentLink.source);
+            }
+
+            return depth;
+        }
+
+        function deleteSingleNode() {
+            if (!nodeToDelete || !hierarchyData) return;
+
+            // Find the node to delete
+            const nodeIndex = hierarchyData.nodes.findIndex(n => n.id === nodeToDelete);
+            if (nodeIndex === -1) return;
+
+            const nodeToRemove = hierarchyData.nodes[nodeIndex];
+
+            // Find all links connected to this node
+            const connectedLinks = hierarchyData.links.filter(link =>
+                link.source === nodeToDelete || link.target === nodeToDelete
+            );
+
+            // Find the parent node (if any)
+            const parentLink = hierarchyData.links.find(link => link.target === nodeToDelete);
+            const parentNode = parentLink ? hierarchyData.nodes.find(n => n.id === parentLink.source) : null;
+
+            // Find child nodes (if any)
+            const childLinks = hierarchyData.links.filter(link => link.source === nodeToDelete);
+            const childNodes = childLinks.map(link =>
+                hierarchyData.nodes.find(n => n.id === link.target)
+            ).filter(node => node);
+
+            // If this node has children and we're not deleting them, we need to connect them to the parent
+            if (childNodes.length > 0 && parentNode) {
+                childNodes.forEach(childNode => {
+                    // Create a new link from parent to child
+                    hierarchyData.links.push({
+                        source: parentNode.id,
+                        target: childNode.id
+                    });
+                });
+            }
+
+            // Remove all links connected to this node
+            hierarchyData.links = hierarchyData.links.filter(link =>
+                link.source !== nodeToDelete && link.target !== nodeToDelete
+            );
+
+            // Remove the node
+            hierarchyData.nodes.splice(nodeIndex, 1);
+
+            // Clear saved position if it exists
+            delete nodePositions[nodeToDelete];
+
+            // Save data
+            saveCurrentData();
+
+            // Re-render the chart
+            renderCombinedFlowChart(hierarchyData);
+
+            // Close the modal and reset
+            document.getElementById('deleteConfirmationModal').style.display = 'none';
+            nodeToDelete = null;
+        }
+
+        function deleteWithChildren() {
+            if (!nodeToDelete || !hierarchyData) return;
+
+            // Find all child nodes to delete
+            const nodesToDelete = new Set();
+            nodesToDelete.add(nodeToDelete);
+
+            // Recursively find all children
+            const findChildren = (parentId) => {
+                hierarchyData.links.forEach(link => {
+                    if (link.source === parentId) {
+                        nodesToDelete.add(link.target);
+                        findChildren(link.target);
+                    }
+                });
+            };
+
+            findChildren(nodeToDelete);
+
+            // Remove all nodes to delete
+            hierarchyData.nodes = hierarchyData.nodes.filter(n => !nodesToDelete.has(n.id));
+
+            // Remove all links connected to these nodes
+            hierarchyData.links = hierarchyData.links.filter(link =>
+                !nodesToDelete.has(link.source) && !nodesToDelete.has(link.target)
+            );
+
+            // Clear saved positions for deleted nodes
+            nodesToDelete.forEach(id => delete nodePositions[id]);
+
+            // Save data
+            saveCurrentData();
+
+            // Re-render the chart
+            renderCombinedFlowChart(hierarchyData);
+
+            // Close the modal and reset
+            document.getElementById('deleteConfirmationModal').style.display = 'none';
+            nodeToDelete = null;
+        }
+
+        function cancelDelete() {
+            nodeToDelete = null;
+            document.getElementById('deleteConfirmationModal').style.display = 'none';
+        }
+
+        function getHierarchyDepth(data) {
+            let maxDepth = 0;
+            const nodeMap = new Map();
+
+            // Build node map
+            data.nodes.forEach(node => {
+                nodeMap.set(node.id, { ...node, depth: 0, children: [] });
+            });
+
+            // Build tree structure
+            data.links.forEach(link => {
+                const parent = nodeMap.get(link.source);
+                const child = nodeMap.get(link.target);
+                if (parent && child) {
+                    parent.children.push(child);
+                }
+            });
+
+            // Calculate depths
+            const calculateDepth = (node, depth) => {
+                node.depth = depth;
+                maxDepth = Math.max(maxDepth, depth);
+                node.children.forEach(child => calculateDepth(child, depth + 1));
+            };
+
+            // Start from root (assuming first node is root)
+            if (data.nodes.length > 0) {
+                calculateDepth(nodeMap.get(data.nodes[0].id), 0);
+            }
+
+            return maxDepth + 1; // Add 1 because depth starts at 0
+        }
+
+        function getHierarchyBreadth(data) {
+            let maxBreadth = 0;
+            const nodeMap = new Map();
+
+            // Build node map
+            data.nodes.forEach(node => {
+                nodeMap.set(node.id, { ...node, breadth: 0, children: [] });
+            });
+
+            // Build tree structure
+            data.links.forEach(link => {
+                const parent = nodeMap.get(link.source);
+                const child = nodeMap.get(link.target);
+                if (parent && child) {
+                    parent.children.push(child);
+                }
+            });
+
+            // Calculate breadth at each level
+            const levelMap = new Map();
+
+            const calculateBreadth = (node, level) => {
+                if (!levelMap.has(level)) {
+                    levelMap.set(level, 0);
+                }
+                levelMap.set(level, levelMap.get(level) + 1);
+                maxBreadth = Math.max(maxBreadth, levelMap.get(level));
+                node.children.forEach(child => calculateBreadth(child, level + 1));
+            };
+
+            // Start from root (assuming first node is root)
+            if (data.nodes.length > 0) {
+                calculateBreadth(nodeMap.get(data.nodes[0].id), 0);
+            }
+
+            return maxBreadth;
+        }
+
+        function getMostCommonLocation(employees) {
+            const locationCounts = {};
+            employees.forEach(emp => {
+                const location = emp['Location'] || 'N/A';
+                locationCounts[location] = (locationCounts[location] || 0) + 1;
+            });
+
+            return Object.keys(locationCounts).reduce((a, b) =>
+                locationCounts[a] > locationCounts[b] ? a : b
+            );
+        }
+
+        function showEmployeeModal(nodeData, showTable = false) {
+            const modal = document.getElementById('employeeModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+
+            modalTitle.textContent = nodeData.fullName || `${nodeData.name} - Employee Details`;
+
+            // Create expand/collapse controls if showing multiple employees
+            let controlsHTML = '';
+            if (nodeData.employees.length > 1) {
+                controlsHTML = `
+                    <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                        <button onclick="expandAllGroups()" style="padding: 6px 12px; background: #4B0082; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Expand All</button>
+                        <button onclick="collapseAllGroups()" style="padding: 6px 12px; background: #64748B; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Collapse All</button>
+                    </div>
+                `;
+            }
+
+            // Group employees by job role if showing multiple employees
+            let employeeCardsHTML = '';
+            if (nodeData.employees.length > 1) {
+                if (nodeData.type === 'manager') {
+                    // For direct reports, show job role groups
+                    const jobRoleGroups = nodeData.jobRoleGroups || groupEmployeesByJobRole(nodeData.employees);
+
+                    Array.from(jobRoleGroups.entries()).forEach(([jobRole, employees]) => {
+                        employeeCardsHTML += `
+                            <div class="job-role-group">
+                                <div class="job-role-group-header" onclick="toggleGroup(this)">
+                                    <h4>${jobRole}</h4>
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="margin-right: 12px; font-size: 13px; color: #64748B;">${employees.length} employees</span>
+                                        <span class="toggle-icon" style="font-size: 0.8em;">▶</span>
+                                    </div>
+                                </div>
+                                <div class="job-role-group-content">
+                                    <ul class="employee-list">
+                                        ${employees.map(emp => `
+                                            <li class="employee-item">
+                                                <div class="employee-info">
+                                                    <strong>${emp['Employee Name'] || 'N/A'}</strong>
+                                                    <span>${emp['Employee ID'] || 'N/A'} | ${emp['Location'] || 'N/A'}</span>
+                                                </div>
+                                                <div class="employee-actions">
+                                                    <button class="employee-action-btn" onclick="showSingleEmployee(event, ${JSON.stringify(emp).replace(/"/g, '&quot;')})">View</button>
+                                                </div>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else if (nodeData.type === 'department' || nodeData.type === 'location') {
+                    // For department or location views, show job role groups
+                    const jobRoleGroups = groupEmployeesByJobRole(nodeData.employees);
+
+                    Array.from(jobRoleGroups.entries()).forEach(([jobRole, employees]) => {
+                        employeeCardsHTML += `
+                            <div class="job-role-group">
+                                <div class="job-role-group-header" onclick="toggleGroup(this)">
+                                    <h4>${jobRole}</h4>
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="margin-right: 12px; font-size: 13px; color: #64748B;">${employees.length} employees</span>
+                                        <span class="toggle-icon" style="font-size: 0.8em;">▶</span>
+                                    </div>
+                                </div>
+                                <div class="job-role-group-content">
+                                    <ul class="employee-list">
+                                        ${employees.map(emp => `
+                                            <li class="employee-item">
+                                                <div class="employee-info">
+                                                    <strong>${emp['Employee Name'] || 'N/A'}</strong>
+                                                    <span>${emp['Employee ID'] || 'N/A'} | ${emp['Location'] || 'N/A'}</span>
+                                                </div>
+                                                <div class="employee-actions">
+                                                    <button class="employee-action-btn" onclick="showSingleEmployee(event, ${JSON.stringify(emp).replace(/"/g, '&quot;')})">View</button>
+                                                </div>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else if (nodeData.type === 'manager' && nodeData.locationGroups) {
+                    // For all managers view, show location groups
+                    Array.from(nodeData.locationGroups.entries()).forEach(([location, managers]) => {
+                        employeeCardsHTML += `
+                            <div class="job-role-group">
+                                <div class="job-role-group-header" onclick="toggleGroup(this)">
+                                    <h4>${location}</h4>
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="margin-right: 12px; font-size: 13px; color: #64748B;">${managers.length} managers</span>
+                                        <span class="toggle-icon" style="font-size: 0.8em;">▶</span>
+                                    </div>
+                                </div>
+                                <div class="job-role-group-content">
+                                    <ul class="employee-list">
+                                        ${managers.map(manager => `
+                                            <li class="employee-item">
+                                                <div class="employee-info">
+                                                    <strong>${manager['Employee Name'] || 'N/A'}</strong>
+                                                    <span>${manager['Job Profile'] || 'N/A'} | ${manager['Employee ID'] || 'N/A'}</span>
+                                                </div>
+                                                <div class="employee-actions">
+                                                    <button class="employee-action-btn" onclick="showSingleEmployee(event, ${JSON.stringify(manager).replace(/"/g, '&quot;')})">View</button>
+                                                </div>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    // Default view for other cases
+                    employeeCardsHTML = `
+                        <div class="employee-grid">
+                            ${nodeData.employees.map(emp => `
+                                <div class="employee-card">
+                                    <h4>${emp['Employee Name'] || 'N/A'}</h4>
+                                    <p><strong>Employee ID:</strong> <span class="employee-id">${emp['Employee ID'] || 'N/A'}</span></p>
+                                    <p><strong>Job Profile:</strong> ${emp['Job Profile'] || 'N/A'}</p>
+                                    <p><strong>Department:</strong> ${emp['Department'] || 'N/A'}</p>
+                                    <p><strong>Location:</strong> <span class="employee-location">${emp['Location'] || 'N/A'}</span></p>
+                                    <p><strong>Reporting Manager:</strong> ${emp['Reporting Manager'] || 'None'}</p>
+                                    ${emp['Email'] ? `<p><strong>Email:</strong> ${emp['Email']}</p>` : ''}
+                                    ${emp['Phone'] ? `<p><strong>Phone:</strong> ${emp['Phone']}</p>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+            } else if (nodeData.employees.length === 1) {
+                // Single employee view
+                const emp = nodeData.employees[0];
+                employeeCardsHTML = `
+                    <div class="employee-card">
+                        <h4>${emp['Employee Name'] || 'N/A'}</h4>
+                        <p><strong>Employee ID:</strong> <span class="employee-id">${emp['Employee ID'] || 'N/A'}</span></p>
+                        <p><strong>Job Profile:</strong> ${emp['Job Profile'] || 'N/A'}</p>
+                        <p><strong>Department:</strong> ${emp['Department'] || 'N/A'}</p>
+                        <p><strong>Location:</strong> <span class="employee-location">${emp['Location'] || 'N/A'}</span></p>
+                        <p><strong>Reporting Manager:</strong> ${emp['Reporting Manager'] || 'None'}</p>
+                        ${emp['Email'] ? `<p><strong>Email:</strong> ${emp['Email']}</p>` : ''}
+                        ${emp['Phone'] ? `<p><strong>Phone:</strong> ${emp['Phone']}</p>` : ''}
+                    </div>
+                `;
+            }
+
+            modalContent.innerHTML = controlsHTML + employeeCardsHTML;
+            modal.classList.add('active');
+        }
+
+        function toggleGroup(header) {
+            const group = header.parentElement;
+            const isExpanded = group.classList.contains('expanded');
+            group.classList.toggle('expanded');
+            const content = group.querySelector('.job-role-group-content');
+            const icon = group.querySelector('.toggle-icon');
+
+            if (isExpanded) {
+                content.style.maxHeight = '0';
+                icon.textContent = '▶';
+            } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                icon.textContent = '▼';
+            }
+        }
+
+        function expandAllGroups() {
+            document.querySelectorAll('.job-role-group').forEach(group => {
+                group.classList.add('expanded');
+                const content = group.querySelector('.job-role-group-content');
+                const icon = group.querySelector('.toggle-icon');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                icon.textContent = '▼';
+            });
+        }
+
+        function collapseAllGroups() {
+            document.querySelectorAll('.job-role-group').forEach(group => {
+                group.classList.remove('expanded');
+                const content = group.querySelector('.job-role-group-content');
+                const icon = group.querySelector('.toggle-icon');
+                content.style.maxHeight = '0';
+                icon.textContent = '▶';
+            });
+        }
+
+        function showSingleEmployee(event, emp) {
+            event.stopPropagation();
+            showEmployeeModal({
+                name: emp['Employee Name'],
+                type: 'employee',
+                count: 1,
+                employees: [emp],
+                fullName: `${emp['Employee Name']} - ${emp['Job Profile']} (${emp['Employee ID'] || 'N/A'})`
+            });
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.remove('active');
+        }
+
+        function showTooltip(event, data) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.opacity = '1';
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+
+            let tooltipContent = `<strong>${data.fullName || data.name}</strong><br>`;
+            tooltipContent += `Type: ${data.type.replace('-', ' ')}<br>`;
+
+            if (data.count !== undefined) {
+                tooltipContent += `Employees: ${data.count}<br>`;
+            }
+
+            if (data.employees && data.employees[0]) {
+                const emp = data.employees[0];
+                if (emp['Employee ID']) tooltipContent += `ID: ${emp['Employee ID']}<br>`;
+                if (emp['Job Profile']) tooltipContent += `Job: ${emp['Job Profile']}<br>`;
+                if (emp['Location']) tooltipContent += `Location: ${emp['Location']}<br>`;
+                if (emp['Reporting Manager']) tooltipContent += `Manager: ${emp['Reporting Manager']}<br>`;
+            }
+
+            if (data.description) {
+                tooltipContent += `<br>${data.description}`;
+            }
+
+            tooltip.innerHTML = tooltipContent;
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.opacity = '0';
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function saveChartAsImage() {
+            const chartContainer = document.getElementById('flowchartContainer');
+            const svg = chartContainer.querySelector('svg');
+
+            if (!svg) {
+                showStatus('No chart to capture', 'error');
+                return;
+            }
+
+            // Show progress modal
+            const progressModal = document.getElementById('screenshotProgressModal');
+            progressModal.style.display = 'flex';
+            const progressBar = document.getElementById('screenshotProgressBar');
+            const statusText = document.getElementById('screenshotStatus');
+
+            // Update progress
+            statusText.textContent = 'Preparing image...';
+            progressBar.style.width = '10%';
+
+            // Get the SVG element and its dimensions
+            const svgRect = svg.getBoundingClientRect();
+            const svgWidth = svgRect.width;
+            const svgHeight = svgRect.height;
+
+            // Create a canvas element with higher resolution
+            const scale = 2; // Scale factor for higher resolution
+            const canvas = document.createElement('canvas');
+            canvas.width = svgWidth * scale;
+            canvas.height = svgHeight * scale;
+            const ctx = canvas.getContext('2d');
+
+            // Set background to white
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Convert SVG to data URL
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const img = new Image();
+
+            img.onload = function() {
+                // Update progress
+                statusText.textContent = 'Rendering image...';
+                progressBar.style.width = '50%';
+
+                // Draw the SVG image onto the canvas with scaling
+                ctx.drawImage(img,
+                    0,
+                    0,
+                    svgWidth * scale,
+                    svgHeight * scale
+                );
+
+                // Update progress
+                statusText.textContent = 'Finalizing image...';
+                progressBar.style.width = '80%';
+
+                // Create download link
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    const filename = `${currentDepartment.replace(/[^a-z0-9]/gi, '_')}_hierarchy_${new Date().toISOString().slice(0,10)}.png`;
+                    link.download = filename;
+
+                    // Convert canvas to blob for better quality
+                    canvas.toBlob(function(blob) {
+                        const url = URL.createObjectURL(blob);
+                        link.href = url;
+
+                        // Update progress
+                        statusText.textContent = 'Downloading image...';
+                        progressBar.style.width = '100%';
+
+                        // Trigger download
+                        setTimeout(() => {
+                            link.click();
+
+                            // Clean up
+                            setTimeout(() => {
+                                URL.revokeObjectURL(url);
+                                progressModal.style.display = 'none';
+                                showStatus('Screenshot saved successfully', 'success');
+                            }, 100);
+                        }, 500);
+                    }, 'image/png', 1.0); // Highest quality
+                }, 500);
+            };
+
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }
+
+        // Enhanced name normalization with fuzzy matching
+        function normalizeName(name) {
+            if (!name) return '';
+
+            // Convert to lowercase and remove extra spaces
+            let normalized = name.toString().trim().toLowerCase()
+                .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+                .replace(/[^a-z\s]/g, ''); // Remove special characters
+
+            // Split into parts and sort alphabetically to handle name order variations
+            const parts = normalized.split(' ').sort();
+            return parts.join(' ');
+        }
+
+        // Calculate similarity between two names (0 to 1)
+        function nameSimilarity(name1, name2) {
+            const normalized1 = normalizeName(name1);
+            const normalized2 = normalizeName(name2);
+
+            if (normalized1 === normalized2) return 1.0;
+
+            // Split into parts
+            const parts1 = normalized1.split(' ');
+            const parts2 = normalized2.split(' ');
+
+            // Count matching parts
+            let matches = 0;
+            for (const part1 of parts1) {
+                for (const part2 of parts2) {
+                    if (part1 === part2) {
+                        matches++;
+                        break;
+                    }
+                }
+            }
+
+            // Calculate similarity score
+            const maxLength = Math.max(parts1.length, parts2.length);
+            return matches / maxLength;
+        }
+
+        // Find best matching employee for a manager name
+        function findBestMatch(managerName, employees) {
+            let bestMatch = null;
+            let bestScore = 0.7; // Minimum similarity threshold
+
+            for (const emp of employees) {
+                const score = nameSimilarity(managerName, emp['Employee Name']);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = emp;
+                }
+            }
+
+            return bestMatch;
+        }
+
+        function saveCurrentDataset() {
+            if (!currentDataset) return;
+
+            datasets[currentDataset] = {
+                ...datasets[currentDataset],
+                employeeData,
+                currentDepartment,
+                currentManager,
+                currentLocation,
+                nodePositions,
+                customLayoutSettings
+            };
+
+            saveCurrentData();
+        }
+
+        function saveCurrentLayout() {
+            if (!currentDataset || !hierarchyData) return;
+
+            // Save the current layout to the dataset
+            datasets[currentDataset].nodePositions = JSON.parse(JSON.stringify(nodePositions));
+            datasets[currentDataset].customLayoutSettings = JSON.parse(JSON.stringify(customLayoutSettings));
+
+            saveCurrentData();
+            showStatus(`Layout saved for ${currentManager || currentDepartment}`, 'success');
+        }
+
+        // Make functions available globally for HTML onclick handlers
+        window.toggleGroup = toggleGroup;
+        window.expandAllGroups = expandAllGroups;
+        window.collapseAllGroups = collapseAllGroups;
+        window.showSingleEmployee = showSingleEmployee;
+        window.closeEmployeeModal = closeEmployeeModal;
+        window.showAllEmployees = showAllEmployees;
+        window.showDirectReports = showDirectReports;
+        window.showAllManagers = showAllManagers;
+    </script>
+</body>
+</html>
