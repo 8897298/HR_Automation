@@ -917,24 +917,69 @@ function saveChartAsImage() {
     statusText.textContent = 'Preparing image...';
     progressBar.style.width = '10%';
 
-    // Get the SVG element and its dimensions
-    const svgRect = svg.getBoundingClientRect();
-    const svgWidth = svgRect.width;
-    const svgHeight = svgRect.height;
+    // Get all visible nodes to calculate content bounds
+    const visibleNodes = Array.from(svg.querySelectorAll('.node:not([display="none"])'));
+    if (visibleNodes.length === 0) {
+        showStatus('No visible content to capture', 'error');
+        progressModal.style.display = 'none';
+        return;
+    }
 
-    // Create a canvas element with higher resolution
+    // Calculate content bounds
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    visibleNodes.forEach(node => {
+        const transform = node.getAttribute('transform');
+        if (transform) {
+            const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+            if (match) {
+                const x = parseFloat(match[1]);
+                const y = parseFloat(match[2]);
+
+                // Get node dimensions
+                const rect = node.querySelector('rect');
+                if (rect) {
+                    const width = parseFloat(rect.getAttribute('width'));
+                    const height = parseFloat(rect.getAttribute('height'));
+
+                    minX = Math.min(minX, x - width/2);
+                    maxX = Math.max(maxX, x + width/2);
+                    minY = Math.min(minY, y - height/2);
+                    maxY = Math.max(maxY, y + height/2);
+                }
+            }
+        }
+    });
+
+    // Add padding to the bounds
+    const padding = 40;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX += padding;
+    maxY += padding;
+
+    // Calculate content dimensions
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    // Create a canvas with content dimensions
     const scale = 2; // Scale factor for higher resolution
     const canvas = document.createElement('canvas');
-    canvas.width = svgWidth * scale;
-    canvas.height = svgHeight * scale;
+    canvas.width = contentWidth * scale;
+    canvas.height = contentHeight * scale;
     const ctx = canvas.getContext('2d');
 
     // Set background to white
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Convert SVG to data URL
-    const svgData = new XMLSerializer().serializeToString(svg);
+    // Convert SVG to data URL with viewBox set to content area
+    const svgClone = svg.cloneNode(true);
+    svgClone.setAttribute('viewBox', `${minX} ${minY} ${contentWidth} ${contentHeight}`);
+    svgClone.setAttribute('width', contentWidth);
+    svgClone.setAttribute('height', contentHeight);
+
+    const svgData = new XMLSerializer().serializeToString(svgClone);
     const img = new Image();
 
     img.onload = function() {
@@ -946,8 +991,8 @@ function saveChartAsImage() {
         ctx.drawImage(img,
             0,
             0,
-            svgWidth * scale,
-            svgHeight * scale
+            contentWidth * scale,
+            contentHeight * scale
         );
 
         // Update progress
